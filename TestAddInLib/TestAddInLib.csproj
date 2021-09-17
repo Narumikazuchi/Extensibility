@@ -13,6 +13,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Content Remove="C:\Users\Davy\.nuget\packages\narumikazuchi.extensibility\1.0.0\contentFiles\any\net5.0-windows7.0\Narumikazuchi.Extensibility.Core.xml" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Narumikazuchi.Extensibility" Version="1.0.0" />
   </ItemGroup>
 
