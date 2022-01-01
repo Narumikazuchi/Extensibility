@@ -1,0 +1,14 @@
+﻿global using Narumikazuchi.Collections.Abstract;
+global using Narumikazuchi.Serialization;
+global using Narumikazuchi.Serialization.Bytes;
+global using System;
+global using System.Collections;
+global using System.Collections.Generic;
+global using System.Collections.ObjectModel;
+global using System.ComponentModel;
+global using System.Diagnostics;
+global using System.Diagnostics.CodeAnalysis;
+global using System.Diagnostics.Contracts;
+global using System.Reflection;
+global using System.Runtime.Loader;
+global using System.Text;

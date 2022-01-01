@@ -1,2 +1,0 @@
-﻿[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Narumikazuchi.Extensibility")]
-[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Narumikazuchi.Extensibility.ProcessWrapper")]

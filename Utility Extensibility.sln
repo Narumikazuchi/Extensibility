@@ -1,17 +1,15 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.31424.327
+# Visual Studio Version 17
+VisualStudioVersion = 17.1.31911.260
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Narumikazuchi.Extensibility", "Narumikazuchi.Extensibility\Narumikazuchi.Extensibility.csproj", "{C25E19E9-47F3-4650-85F1-7252414825B9}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Narumikazuchi.Extensibility.ProcessWrapper", "Narumikazuchi.Extensibility.ProcessWrapper\Narumikazuchi.Extensibility.ProcessWrapper.csproj", "{81994F69-DFE9-4FB2-9B28-09694AE614C8}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UnitTest", "UnitTest\UnitTest.csproj", "{FFECD46B-247E-4BA4-884D-11BDF0620DA4}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestAddInLib", "TestAddInLib\TestAddInLib.csproj", "{AB3A030E-2445-4EC2-9728-EB82162C1554}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Narumikazuchi.Extensibility.Core", "Narumikazuchi.Extensibility.Core\Narumikazuchi.Extensibility.Core.csproj", "{4E9B02A4-F705-4F0F-8955-C5CF82EBD180}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestAddInInterface", "TestAddInInterface\TestAddInInterface.csproj", "{EB326300-94FF-4405-842A-87D2923B55E7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -23,10 +21,6 @@ Global
 		{C25E19E9-47F3-4650-85F1-7252414825B9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C25E19E9-47F3-4650-85F1-7252414825B9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C25E19E9-47F3-4650-85F1-7252414825B9}.Release|Any CPU.Build.0 = Release|Any CPU
-		{81994F69-DFE9-4FB2-9B28-09694AE614C8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{81994F69-DFE9-4FB2-9B28-09694AE614C8}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{81994F69-DFE9-4FB2-9B28-09694AE614C8}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{81994F69-DFE9-4FB2-9B28-09694AE614C8}.Release|Any CPU.Build.0 = Release|Any CPU
 		{FFECD46B-247E-4BA4-884D-11BDF0620DA4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{FFECD46B-247E-4BA4-884D-11BDF0620DA4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FFECD46B-247E-4BA4-884D-11BDF0620DA4}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -35,10 +29,10 @@ Global
 		{AB3A030E-2445-4EC2-9728-EB82162C1554}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AB3A030E-2445-4EC2-9728-EB82162C1554}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AB3A030E-2445-4EC2-9728-EB82162C1554}.Release|Any CPU.Build.0 = Release|Any CPU
-		{4E9B02A4-F705-4F0F-8955-C5CF82EBD180}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{4E9B02A4-F705-4F0F-8955-C5CF82EBD180}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{4E9B02A4-F705-4F0F-8955-C5CF82EBD180}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{4E9B02A4-F705-4F0F-8955-C5CF82EBD180}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EB326300-94FF-4405-842A-87D2923B55E7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EB326300-94FF-4405-842A-87D2923B55E7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EB326300-94FF-4405-842A-87D2923B55E7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EB326300-94FF-4405-842A-87D2923B55E7}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

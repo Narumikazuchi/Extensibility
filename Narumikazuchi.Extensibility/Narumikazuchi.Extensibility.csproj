@@ -1,9 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net5.0-windows7.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <Nullable>enable</Nullable>
+    <LangVersion>preview</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnablePreviewFeatures>True</EnablePreviewFeatures>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <Authors>Narumikazuchi</Authors>
     <Copyright>©2021 Narumikazuchi</Copyright>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
@@ -29,14 +33,6 @@ For more information visit https://github.com/Narumikazuchi/Extensibility/wiki.<
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Narumikazuchi" Version="1.0.0" />
-    <PackageReference Include="Narumikazuchi.Collections.Abstract" Version="1.0.0" />
-    <PackageReference Include="Narumikazuchi.Extensibility.Core" Version="1.0.0" />
-    <PackageReference Include="Narumikazuchi.Serialization.Bytes" Version="1.0.0" />
-    <PackageReference Include="Narumikazuchi.Windows.Pipes" Version="3.0.0" />
-  </ItemGroup>
-
-  <ItemGroup>
     <None Include="..\..\Narumikazuchi nuget.png">
       <Pack>True</Pack>
       <PackagePath></PackagePath>
@@ -48,18 +44,9 @@ For more information visit https://github.com/Narumikazuchi/Extensibility/wiki.<
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Update="Properties\Resources.Designer.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>Resources.resx</DependentUpon>
-    </Compile>
-  </ItemGroup>
-
-  <ItemGroup>
-    <EmbeddedResource Update="Properties\Resources.resx">
-      <Generator>ResXFileCodeGenerator</Generator>
-      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
-    </EmbeddedResource>
+    <PackageReference Include="Narumikazuchi" Version="2.0.0" />
+    <PackageReference Include="Narumikazuchi.Collections.Abstract" Version="2.0.0" />
+    <PackageReference Include="Narumikazuchi.Serialization.Bytes" Version="2.0.0" />
   </ItemGroup>
 
 </Project>

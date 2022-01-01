@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "Narumikazuchi.Extensibility.ProcessWrapper": {
-      "commandName": "Project",
-      "commandLineArgs": "-e \"\\\\192.168.0.30\\Davy\\Programmierung\\Projects\\Utility Extensibility\\UnitTest\\bin\\Debug\\net5.0-windows7.0\\TestAddInLib.dll\" \"TestAddInLib.TestAddIn\""
-    }
-  }
-}
