@@ -6,17 +6,7 @@
     <LangVersion>preview</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <EnablePreviewFeatures>True</EnablePreviewFeatures>
-    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-
-    <IsPackable>false</IsPackable>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <PlatformTarget>x64</PlatformTarget>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-    <PlatformTarget>x64</PlatformTarget>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
   </PropertyGroup>
 
   <ItemGroup>
@@ -27,9 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\TestAddInInterface\TestAddInInterface.csproj">
-      <CopyLocal>True</CopyLocal>
-    </ProjectReference>
+    <ProjectReference Include="..\Narumikazuchi.Extensibility\Narumikazuchi.Extensibility.csproj" />
   </ItemGroup>
 
 </Project>

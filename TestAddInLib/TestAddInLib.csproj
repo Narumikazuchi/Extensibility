@@ -1,15 +1,22 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net5.0-windows7.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <LangVersion>preview</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnablePreviewFeatures>True</EnablePreviewFeatures>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <PlatformTarget>x64</PlatformTarget>
+    <OutputPath>..\UnitTest\bin\Debug\</OutputPath>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <PlatformTarget>x64</PlatformTarget>
+    <OutputPath>..\UnitTest\bin\Release\</OutputPath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,7 +24,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Narumikazuchi.Extensibility" Version="1.0.0" />
+    <PackageReference Include="Narumikazuchi.Serialization.Json" Version="1.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TestAddInInterface\TestAddInInterface.csproj">
+    </ProjectReference>
   </ItemGroup>
 
 </Project>
