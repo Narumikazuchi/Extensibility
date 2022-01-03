@@ -16,6 +16,7 @@ public partial class ExternalIndirectAddInTest : IMyAddIn<ExternalIndirectAddInT
     {
         context.WriteLine("My functionality happened!");
         Narumikazuchi.Serialization.Json.JsonObject x = new();
+        context.WriteLine(x.ToString());
     }
 
     public String Name { get; } = "FooBar";
