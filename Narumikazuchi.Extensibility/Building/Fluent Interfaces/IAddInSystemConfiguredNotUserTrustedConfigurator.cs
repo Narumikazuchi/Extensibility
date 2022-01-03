@@ -3,6 +3,8 @@
 /// <summary>
 /// Configures the action the store shall take, when the application tries to register a non-trusted AddIn.
 /// </summary>
+[Browsable(false)]
+[EditorBrowsable(EditorBrowsableState.Never)]
 public interface IAddInSystemConfiguredNotUserTrustedConfigurator
 {
     /// <summary>
