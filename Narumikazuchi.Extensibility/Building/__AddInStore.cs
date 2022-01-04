@@ -843,47 +843,21 @@ partial class __AddInStore : IAddInRegistrator
                                       cacheFilePath: cacheFilePath);
         }
 
+        Boolean trusted = false;
         if (this._trustLevel
-                .HasFlag(TrustLevel.TRUSTED_ONLY) &&
-            !this._trustedAddInList
-                 .Contains(item: addIn.UniqueIdentifier))
+                .HasFlag(TrustLevel.USER_CONFIRMED_ONLY) &&
+            this._userTrustedAddInList
+                .Contains(item: addIn.UniqueIdentifier))
         {
-            if (this._shouldFailWhenNotSystemTrusted)
-            {
-                InvalidOperationException exception = new();
-                throw exception;
-            }
-            if (this._userNotificationDelegate is not null)
-            {
-                this._userNotificationDelegate
-                    .Invoke(addIn);
-            }
-            return false;
+            trusted = true;
         }
 
         if (this._trustLevel
-                .HasFlag(TrustLevel.USER_CONFIRMED_ONLY) &&
-            !this._userTrustedAddInList
-                 .Contains(item: addIn.UniqueIdentifier))
+                .HasFlag(TrustLevel.TRUSTED_ONLY) &&
+            this._trustedAddInList
+                .Contains(item: addIn.UniqueIdentifier))
         {
-            if (this._shouldFailWhenNotUserTrusted)
-            {
-                InvalidOperationException exception = new();
-                throw exception;
-            }
-            if (this._userPromptDelegate is not null)
-            {
-                if (this._userPromptDelegate
-                        .Invoke(addIn))
-                {
-                    this._userTrustedAddInList
-                        .Add(item: addIn.UniqueIdentifier);
-                    return this.RegisterAddIn(addIn: addIn,
-                                              cacheFilePath: cacheFilePath);
-                }
-                
-            }
-            return false;
+            trusted = true;
         }
 
         if (this._trustLevel is TrustLevel.NOT_TRUSTED &&
@@ -892,6 +866,44 @@ partial class __AddInStore : IAddInRegistrator
             this._userTrustedAddInList
                 .Contains(item: addIn.UniqueIdentifier))
         {
+            return false;
+        }
+
+        if (!trusted)
+        {
+            if (this._trustLevel
+                    .HasFlag(TrustLevel.TRUSTED_ONLY))
+            {
+                if (this._userPromptDelegate is not null &&
+                    this._userPromptDelegate
+                        .Invoke(addIn))
+                {
+                    this._userTrustedAddInList
+                        .Add(item: addIn.UniqueIdentifier);
+                    return this.RegisterAddIn(addIn: addIn,
+                                              cacheFilePath: cacheFilePath);
+                }
+                if (this._shouldFailWhenNotUserTrusted)
+                {
+                    InvalidOperationException exception = new();
+                    throw exception;
+                }
+
+            }
+            else if (this._trustLevel
+                         .HasFlag(TrustLevel.TRUSTED_ONLY))
+            {
+                if (this._userNotificationDelegate is not null)
+                {
+                    this._userNotificationDelegate
+                        .Invoke(addIn);
+                }
+                if (this._shouldFailWhenNotSystemTrusted)
+                {
+                    InvalidOperationException exception = new();
+                    throw exception;
+                }
+            }
             return false;
         }
 
