@@ -215,8 +215,6 @@ partial class __AddInStore
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private const String COULD_NOT_FIND_TYPE = "The type of the AddIn could not be found in any of the loaded assemblies.";
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    private const String COULD_NOT_CREATE_CACHE_FILE = "Encountered a problem while trying to create the cache file.";
-    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private const String TYPES_WERE_INCOMPATIBLE = "The specified AddIn type is not assignable to the actual type of the AddIn to activate.";
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private const String CACHE_HAS_NOT_BEEN_LOADED = "The specified cache file has not been loaded into the store.";
@@ -975,7 +973,6 @@ partial class __AddInStore : IAddInRegistrator
     public Boolean TryRegisterAddIns([DisallowNull] FileInfo assembly,
                                      [DisallowNull] FileInfo cache)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(assembly);
         ExceptionHelpers.ThrowIfArgumentNull(cache);
         return this.TryRegisterAddIns(assemblyFilePath: assembly.FullName,
                                       cacheFilePath: cache.FullName);
@@ -997,7 +994,6 @@ partial class __AddInStore : IAddInRegistrator
     public Boolean TryRegisterAddIns([DisallowNull] String assemblyFilePath,
                                      [DisallowNull] FileInfo cache)
     {
-        ExceptionHelpers.ThrowIfNullOrEmpty(assemblyFilePath);
         ExceptionHelpers.ThrowIfArgumentNull(cache);
         return this.TryRegisterAddIns(assemblyFilePath: assemblyFilePath,
                                       cacheFilePath: cache.FullName);
@@ -1034,6 +1030,66 @@ partial class __AddInStore : IAddInRegistrator
         }
         return result;
     }
+
+    public Boolean TryRegisterAddIns([DisallowNull] Byte[] rawAssembly) =>
+        this.TryRegisterAddIns(rawAssembly: rawAssembly,
+                               cacheFilePath: this._defaultCache);
+    public Boolean TryRegisterAddIns([DisallowNull] Byte[] rawAssembly, 
+                                     [DisallowNull] FileInfo cache)
+    {
+        ExceptionHelpers.ThrowIfArgumentNull(cache);
+        return this.TryRegisterAddIns(rawAssembly: rawAssembly,
+                                      cacheFilePath: cache.FullName);
+    }
+    public Boolean TryRegisterAddIns([DisallowNull] Byte[] rawAssembly, 
+                                     [DisallowNull] String cacheFilePath)
+    {
+        ExceptionHelpers.ThrowIfArgumentNull(rawAssembly);
+        ExceptionHelpers.ThrowIfArgumentNull(cacheFilePath);
+        if (!File.Exists(cacheFilePath))
+        {
+            FileNotFoundException exception = new();
+            exception.Data
+                     .Add(key: "Fullpath",
+                          value: cacheFilePath);
+            throw exception;
+        }
+
+        Assembly assembly = Assembly.Load(rawAssembly: rawAssembly);
+        Boolean result = false;
+        IEnumerable<AddInDefinition> enumerable = new __AddInEnumerator(assembly);
+        foreach (AddInDefinition item in enumerable)
+        {
+            result |= this.TryRegisterAddIn(addIn: item,
+                                            cacheFilePath: cacheFilePath);
+        }
+        return result;
+    }
+
+    public Boolean TryRegisterAddIns([DisallowNull] Stream assemblyStream) =>
+        this.TryRegisterAddIns(assemblyStream: assemblyStream,
+                               cacheFilePath: this._defaultCache);
+    public Boolean TryRegisterAddIns([DisallowNull] Stream assemblyStream, 
+                                     [DisallowNull] FileInfo cache)
+    {
+        ExceptionHelpers.ThrowIfArgumentNull(cache);
+        return this.TryRegisterAddIns(assemblyStream: assemblyStream,
+                                      cacheFilePath: cache.FullName);
+    }
+    public Boolean TryRegisterAddIns([DisallowNull] Stream assemblyStream, 
+                                     [DisallowNull] String cacheFilePath)
+    {
+        ExceptionHelpers.ThrowIfArgumentNull(assemblyStream);
+
+        Int32 count = (Int32)(assemblyStream.Length - assemblyStream.Position);
+        Byte[] assembly = new Byte[count];
+        assemblyStream.Read(buffer: assembly,
+                            offset: 0,
+                            count: count);
+        return this.TryRegisterAddIns(rawAssembly: assembly,
+                                      cacheFilePath: cacheFilePath);
+    }
+
 }
 
 // IAddInStore
@@ -1114,7 +1170,6 @@ partial class __AddInStore : IAddInUnregistrator
                                       [DisallowNull] String cacheFilePath)
     {
         ExceptionHelpers.ThrowIfArgumentNull(assembly);
-        ExceptionHelpers.ThrowIfNullOrEmpty(cacheFilePath);
         return this.TryUnregisterAddIn(assemblyFilePath: assembly.FullName,
                                        cacheFilePath: cacheFilePath);
     }
@@ -1181,8 +1236,8 @@ partial class __AddInStore : IAddInUnregistrator
     public Boolean TryUnregisterAddIn([DisallowNull] String assemblyFilePath,
                                       [DisallowNull] String cacheFilePath)
     {
-        ExceptionHelpers.ThrowIfNullOrEmpty(assemblyFilePath);
-        ExceptionHelpers.ThrowIfNullOrEmpty(cacheFilePath);
+        ExceptionHelpers.ThrowIfArgumentNull(assemblyFilePath);
+        ExceptionHelpers.ThrowIfArgumentNull(cacheFilePath);
         if (!File.Exists(cacheFilePath))
         {
             FileNotFoundException exception = new();
@@ -1192,12 +1247,40 @@ partial class __AddInStore : IAddInUnregistrator
             throw exception;
         }
         if (!this._cache
-                 .ContainsKey(assemblyFilePath))
+                 .ContainsKey(cacheFilePath))
         {
             return false;
         }
 
-        foreach (AddInDefinition item in this._cache[assemblyFilePath])
+        Assembly? assembly = null;
+        foreach (Assembly item in AppDomain.CurrentDomain
+                                           .GetAssemblies())
+        {
+            if (item.IsDynamic)
+            {
+                continue;
+            }
+            if (String.IsNullOrWhiteSpace(item.Location) ||
+                !File.Exists(item.Location))
+            {
+                continue;
+            }
+
+            if (item.Location == assemblyFilePath)
+            {
+                assembly = item;
+                break;
+            }
+        }
+
+        if (assembly is null)
+        {
+            // Assembly not loaded
+            return false;
+        }
+
+        IEnumerable<AddInDefinition> enumerator = new __AddInEnumerator(assembly);
+        foreach (AddInDefinition item in enumerator)
         {
             Int32 index = this._cache[cacheFilePath]
                               .IndexOf(item);
@@ -1269,6 +1352,103 @@ partial class __AddInStore : IAddInUnregistrator
                                          addInType);
         return this.TryUnregisterAddIn(addIn: definition,
                                        cacheFilePath: cacheFilePath);
+    }
+
+    public Boolean TryUnregisterAddIns([DisallowNull] Byte[] rawAssembly) =>
+        this.TryUnregisterAddIns(rawAssembly: rawAssembly,
+                                 cacheFilePath: this._defaultCache);
+    public Boolean TryUnregisterAddIns([DisallowNull] Byte[] rawAssembly, 
+                                       [DisallowNull] FileInfo cache)
+    {
+        ExceptionHelpers.ThrowIfArgumentNull(cache);
+        return this.TryUnregisterAddIns(rawAssembly: rawAssembly,
+                                        cacheFilePath: cache.FullName);
+    }
+    public Boolean TryUnregisterAddIns([DisallowNull] Byte[] rawAssembly, 
+                                       [DisallowNull] String cacheFilePath)
+    {
+        ExceptionHelpers.ThrowIfArgumentNull(rawAssembly);
+        ExceptionHelpers.ThrowIfArgumentNull(cacheFilePath);
+        if (!File.Exists(cacheFilePath))
+        {
+            FileNotFoundException exception = new();
+            exception.Data
+                     .Add(key: "Fullpath",
+                          value: cacheFilePath);
+            throw exception;
+        }
+        if (!this._cache
+                 .ContainsKey(cacheFilePath))
+        {
+            return false;
+        }
+
+        Assembly? assembly = null;
+        Assembly? temp = Assembly.Load(rawAssembly: rawAssembly);
+        foreach (Assembly item in AppDomain.CurrentDomain
+                                           .GetAssemblies())
+        {
+            if (item.IsDynamic)
+            {
+                continue;
+            }
+
+            if (item.FullName == temp.FullName)
+            {
+                assembly = item;
+                break;
+            }
+        }
+
+        if (assembly is null)
+        {
+            // Assembly not loaded
+            return false;
+        }
+
+        IEnumerable<AddInDefinition> enumerator = new __AddInEnumerator(assembly);
+        foreach (AddInDefinition item in enumerator)
+        {
+            Int32 index = this._cache[cacheFilePath]
+                              .IndexOf(item);
+            if (this._instances
+                    .ContainsKey(item) &&
+                this._instances[item] is not __InactiveAddIn)
+            {
+                this._instances[item]
+                    .Shutdown();
+            }
+            this._cache[cacheFilePath]
+                .RemoveAt(index);
+            this._instances
+                .Remove(key: item);
+        }
+        return true;
+    }
+
+    public Boolean TryUnregisterAddIns([DisallowNull] Stream assemblyStream) =>
+        this.TryUnregisterAddIns(assemblyStream: assemblyStream,
+                                 cacheFilePath: this._defaultCache);
+    public Boolean TryUnregisterAddIns([DisallowNull] Stream assemblyStream, 
+                                       [DisallowNull] FileInfo cache)
+    {
+        ExceptionHelpers.ThrowIfArgumentNull(cache);
+        return this.TryUnregisterAddIns(assemblyStream: assemblyStream,
+                                        cacheFilePath: cache.FullName);
+    }
+    public Boolean TryUnregisterAddIns([DisallowNull] Stream assemblyStream, 
+                                       [DisallowNull] String cacheFilePath)
+    {
+        ExceptionHelpers.ThrowIfArgumentNull(assemblyStream);
+        ExceptionHelpers.ThrowIfArgumentNull(cacheFilePath);
+
+        Int32 count = (Int32)(assemblyStream.Length - assemblyStream.Position);
+        Byte[] assembly = new Byte[count];
+        assemblyStream.Read(buffer: assembly,
+                            offset: 0,
+                            count: count);
+        return this.TryUnregisterAddIns(rawAssembly: assembly,
+                                        cacheFilePath: cacheFilePath);
     }
 }
 
