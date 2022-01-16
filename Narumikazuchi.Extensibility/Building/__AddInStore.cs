@@ -936,6 +936,11 @@ partial class __AddInStore : IAddInRegistrator
         Boolean implements = false;
         foreach (Type @interface in addInType.GetInterfaces())
         {
+            if (!@interface.IsGenericType)
+            {
+                continue;
+            }
+
             if (@interface.GetGenericTypeDefinition() == typeof(IAddIn<>))
             {
                 implements = true;
@@ -1320,6 +1325,11 @@ partial class __AddInStore : IAddInUnregistrator
         Boolean implements = false;
         foreach (Type @interface in addInType.GetInterfaces())
         {
+            if (!@interface.IsGenericType)
+            {
+                continue;
+            }
+
             if (@interface.GetGenericTypeDefinition() == typeof(IAddIn<>))
             {
                 implements = true;
