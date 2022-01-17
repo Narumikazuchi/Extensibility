@@ -385,19 +385,30 @@ partial class __AddInStore : IAddInActivator
 partial class __AddInStore : IAddInDiscoverer
 {
     [return: NotNull]
-    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssemblies([DisallowNull] IEnumerable<Assembly> assemblies)
+    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssemblies([DisallowNull] IEnumerable<Assembly> assemblies) =>
+        this.DiscoverAddInsContainedInAssemblies(assemblies: assemblies,
+                                                 searchPrivateTypes: false);
+    [return: NotNull]
+    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssemblies([DisallowNull] IEnumerable<Assembly> assemblies,
+                                                                             in Boolean searchPrivateTypes)
     {
         ExceptionHelpers.ThrowIfArgumentNull(assemblies);
 
         List<IAddInDefinition> result = new();
         foreach (Assembly assembly in assemblies)
         {
-            result.AddRange(this.DiscoverAddInsContainedInAssembly(assembly: assembly));
+            result.AddRange(this.DiscoverAddInsContainedInAssembly(assembly: assembly,
+                                                                   searchPrivateTypes: searchPrivateTypes));
         }
         return result;
     }
     [return: NotNull]
-    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssemblies([DisallowNull] IEnumerable<FileInfo> assemblyFiles)
+    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssemblies([DisallowNull] IEnumerable<FileInfo> assemblyFiles) =>
+        this.DiscoverAddInsContainedInAssemblies(assemblyFiles: assemblyFiles,
+                                                 searchPrivateTypes: false);
+    [return: NotNull]
+    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssemblies([DisallowNull] IEnumerable<FileInfo> assemblyFiles,
+                                                                             in Boolean searchPrivateTypes)
     {
         ExceptionHelpers.ThrowIfArgumentNull(assemblyFiles);
 
@@ -408,12 +419,18 @@ partial class __AddInStore : IAddInDiscoverer
             {
                 continue;
             }
-            result.AddRange(this.DiscoverAddInsContainedInAssembly(assemblyFile: assemblyFile));
+            result.AddRange(this.DiscoverAddInsContainedInAssembly(assemblyFile: assemblyFile,
+                                                                   searchPrivateTypes: searchPrivateTypes));
         }
         return result;
     }
     [return: NotNull]
-    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssemblies([DisallowNull] DirectoryInfo directory)
+    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssemblies([DisallowNull] DirectoryInfo directory) =>
+        this.DiscoverAddInsContainedInAssemblies(directory: directory,
+                                                 searchPrivateTypes: false);
+    [return: NotNull]
+    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssemblies([DisallowNull] DirectoryInfo directory,
+                                                                             in Boolean searchPrivateTypes)
     {
         ExceptionHelpers.ThrowIfArgumentNull(directory);
 
@@ -424,12 +441,18 @@ partial class __AddInStore : IAddInDiscoverer
             {
                 continue;
             }
-            result.AddRange(this.DiscoverAddInsContainedInAssembly(assemblyFile: assemblyFile));
+            result.AddRange(this.DiscoverAddInsContainedInAssembly(assemblyFile: assemblyFile,
+                                                                   searchPrivateTypes: searchPrivateTypes));
         }
         return result;
     }
     [return: NotNull]
-    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssemblies([DisallowNull] String directoryPath)
+    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssemblies([DisallowNull] String directoryPath) =>
+        this.DiscoverAddInsContainedInAssemblies(directoryPath: directoryPath,
+                                                 searchPrivateTypes: false);
+    [return: NotNull]
+    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssemblies([DisallowNull] String directoryPath,
+                                                                             in Boolean searchPrivateTypes)
     {
         ExceptionHelpers.ThrowIfArgumentNull(directoryPath);
 
@@ -441,20 +464,32 @@ partial class __AddInStore : IAddInDiscoverer
             {
                 continue;
             }
-            result.AddRange(this.DiscoverAddInsContainedInAssembly(assemblyPath: assemblyFile));
+            result.AddRange(this.DiscoverAddInsContainedInAssembly(assemblyPath: assemblyFile,
+                                                                   searchPrivateTypes: searchPrivateTypes));
         }
         return result;
     }
 
     [return: NotNull]
-    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssembly([DisallowNull] FileInfo assemblyFile)
+    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssembly([DisallowNull] FileInfo assemblyFile) =>
+        this.DiscoverAddInsContainedInAssembly(assemblyFile: assemblyFile,
+                                               searchPrivateTypes: false);
+    [return: NotNull]
+    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssembly([DisallowNull] FileInfo assemblyFile,
+                                                                           in Boolean searchPrivateTypes)
     {
         ExceptionHelpers.ThrowIfArgumentNull(assemblyFile);
 
-        return this.DiscoverAddInsContainedInAssembly(assemblyPath: assemblyFile.FullName);
+        return this.DiscoverAddInsContainedInAssembly(assemblyPath: assemblyFile.FullName,
+                                                      searchPrivateTypes: searchPrivateTypes);
     }
     [return: NotNull]
-    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssembly([DisallowNull] String assemblyPath)
+    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssembly([DisallowNull] String assemblyPath) =>
+        this.DiscoverAddInsContainedInAssembly(assemblyPath: assemblyPath,
+                                               searchPrivateTypes: false);
+    [return: NotNull]
+    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssembly([DisallowNull] String assemblyPath,
+                                                                           in Boolean searchPrivateTypes)
     {
         ExceptionHelpers.ThrowIfArgumentNull(assemblyPath);
 
@@ -463,18 +498,30 @@ partial class __AddInStore : IAddInDiscoverer
             return Array.Empty<IAddInDefinition>();
         }
         Assembly assembly = Assembly.LoadFrom(assemblyFile: assemblyPath);
-        return this.DiscoverAddInsContainedInAssembly(assembly: assembly);
+        return this.DiscoverAddInsContainedInAssembly(assembly: assembly,
+                                                      searchPrivateTypes: searchPrivateTypes);
     }
     [return: NotNull]
-    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssembly([DisallowNull] Byte[] rawAssembly)
+    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssembly([DisallowNull] Byte[] rawAssembly) =>
+        this.DiscoverAddInsContainedInAssembly(rawAssembly: rawAssembly,
+                                               searchPrivateTypes: false);
+    [return: NotNull]
+    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssembly([DisallowNull] Byte[] rawAssembly,
+                                                                           in Boolean searchPrivateTypes)
     {
         ExceptionHelpers.ThrowIfArgumentNull(rawAssembly);
 
         Assembly assembly = Assembly.Load(rawAssembly: rawAssembly);
-        return this.DiscoverAddInsContainedInAssembly(assembly: assembly);
+        return this.DiscoverAddInsContainedInAssembly(assembly: assembly,
+                                                      searchPrivateTypes: searchPrivateTypes);
     }
     [return: NotNull]
-    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssembly([DisallowNull] Stream assemblyStream)
+    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssembly([DisallowNull] Stream assemblyStream) =>
+        this.DiscoverAddInsContainedInAssembly(assemblyStream: assemblyStream,
+                                               searchPrivateTypes: false);
+    [return: NotNull]
+    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssembly([DisallowNull] Stream assemblyStream,
+                                                                           in Boolean searchPrivateTypes)
     {
         ExceptionHelpers.ThrowIfArgumentNull(assemblyStream);
 
@@ -484,18 +531,25 @@ partial class __AddInStore : IAddInDiscoverer
         }
         using MemoryStream stream = new();
         assemblyStream.CopyTo(stream);
-        return this.DiscoverAddInsContainedInAssembly(rawAssembly: stream.ToArray());
+        return this.DiscoverAddInsContainedInAssembly(rawAssembly: stream.ToArray(),
+                                                      searchPrivateTypes: searchPrivateTypes);
     }
     [return: NotNull]
-    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssembly([DisallowNull] Assembly assembly)
+    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssembly([DisallowNull] Assembly assembly) =>
+        this.DiscoverAddInsContainedInAssembly(assembly: assembly,
+                                               searchPrivateTypes: false);
+    [return: NotNull]
+    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssembly([DisallowNull] Assembly assembly,
+                                                                           in Boolean searchPrivateTypes)
     {
         ExceptionHelpers.ThrowIfArgumentNull(assembly);
 
         if (this._trustLevel is TrustLevel.NONE)
         {
-            yield break;
+            return Array.Empty<IAddInDefinition>();
         }
 
+        Collection<IAddInDefinition> result = new();
         foreach (Type type in assembly.ExportedTypes)
         {
             if (!AttributeResolver.HasAttribute<AddInAttribute>(info: type))
@@ -571,7 +625,7 @@ partial class __AddInStore : IAddInDiscoverer
                     {
                         this._userTrustedAddInList
                             .Add(item: addIn.UniqueIdentifier);
-                        yield return addIn;
+                        result.Add(addIn);
                     }
                     if (this._shouldFailWhenNotUserTrusted)
                     {
@@ -607,12 +661,18 @@ partial class __AddInStore : IAddInDiscoverer
             this.AddInDiscovered?
                 .Invoke(sender: this,
                         eventArgs: new(addIn));
-            this._instances
-                .Add(key: addIn,
-                     value: new __InactiveAddIn());
-            yield return addIn;
+
+            if (!this._instances
+                     .ContainsKey(addIn))
+            {
+                this._instances
+                    .Add(key: addIn,
+                         value: new __InactiveAddIn());
+            }
+
+            result.Add(addIn);
         }
-        yield break;
+        return result;
     }
 
     public Boolean IsAddInDiscovered([DisallowNull] IAddInDefinition addIn)
