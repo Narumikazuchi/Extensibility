@@ -65,7 +65,7 @@ public interface IAddIn<TSelf> :
     /// This method will get called from the <see cref="IAddInStore"/> to get a reference to this AddIn.
     /// </remarks>
     /// <returns>A reference to this AddIn</returns>
-    internal protected static abstract TSelf Activate();
+    public static abstract TSelf Activate();
 }
 
 /// <summary>
@@ -87,5 +87,5 @@ public interface IAddIn<TSelf, TOptions> :
     /// </remarks>
     /// <param name="options">The options used to configure this AddIn for activation.</param>
     /// <returns>A reference to this AddIn</returns>
-    internal protected static abstract TSelf Activate(TOptions options);
+    public static abstract TSelf Activate(TOptions options);
 }
