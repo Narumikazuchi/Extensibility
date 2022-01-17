@@ -11,7 +11,7 @@ public interface IAddInSystemConfiguredNotUserTrustedConfigurator
     /// When the application tries to register an AddIn that is not in the supplied "User-Trusted"-list, 
     /// it will critically fail by throwing an exception.
     /// </summary>
-    public IAddInTrustBothListConfigurator PromptUserWhenNotUserTrusted([DisallowNull] Func<AddInDefinition, Boolean> userPrompt);
+    public IAddInTrustBothListConfigurator PromptUserWhenNotUserTrusted([DisallowNull] Func<IAddInDefinition, Boolean> userPrompt);
 
     /// <summary>
     /// When the application tries to register an AddIn that is not in the supplied "User-Trusted"-list, 

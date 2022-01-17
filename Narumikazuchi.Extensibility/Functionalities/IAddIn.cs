@@ -40,6 +40,11 @@ public interface IAddIn
     /// Occurs right before the reference to the instance will get deleted from the <see cref="IAddInStore"/>.
     /// </summary>
     public event EventHandler<IAddIn>? ShutdownFinished;
+
+    /// <summary>
+    /// Gets whether the <see cref="IAddIn"/> is currently shutting down.
+    /// </summary>
+    public Boolean IsShuttingDown { get; }
 }
 
 /// <summary>

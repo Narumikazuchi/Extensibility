@@ -15,14 +15,9 @@ public sealed partial class AddInAttribute :  Attribute
                           [DisallowNull] String guid, 
                           [DisallowNull] String version)
     {
-        if (name is null)
-        {
-            throw new ArgumentNullException(nameof(name));
-        }
-        if (guid is null)
-        {
-            throw new ArgumentNullException(nameof(guid));
-        }
+        ExceptionHelpers.ThrowIfArgumentNull(name);
+        ExceptionHelpers.ThrowIfArgumentNull(guid);
+        ExceptionHelpers.ThrowIfArgumentNull(version);
         if (!Guid.TryParse(input: guid, 
                             result: out Guid id))
         {
@@ -44,20 +39,17 @@ public sealed partial class AddInAttribute :  Attribute
     /// <summary>
     /// Gets the internal name of the AddIn.
     /// </summary>
-    [DebuggerBrowsable(DebuggerBrowsableState.Collapsed)]
     [Pure]
     [NotNull]
     public String Name { get; }
     /// <summary>
     /// Gets the unique GUID of the AddIn.
     /// </summary>
-    [DebuggerBrowsable(DebuggerBrowsableState.Collapsed)]
     [Pure]
     public Guid UniqueIdentifier { get; }
     /// <summary>
     /// Gets the release version of the AddIn.
     /// </summary>
-    [DebuggerBrowsable(DebuggerBrowsableState.Collapsed)]
     [Pure]
     public AlphanumericVersion Version { get; }
 }
@@ -65,7 +57,9 @@ public sealed partial class AddInAttribute :  Attribute
 partial class AddInAttribute
 {
 #pragma warning disable
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private const String GUID_PARSE_ERROR = "Could not parse the specified string to a Guid.";
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private const String VERSION_PARSE_ERROR = "Could not parse the specified string to a Version.";
 #pragma warning restore
 }

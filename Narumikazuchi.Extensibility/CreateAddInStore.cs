@@ -6,34 +6,38 @@
 public static class CreateAddInStore
 {
     /// <summary>
-    /// Uses the standard path for the default cache file path.
+    /// The store will only trust system-trusted AddIns, which are a fixed set of programmatically provided AddIns.
     /// </summary>
-    public static IAddInTrustConfigurator WithDefaultCachePathFromStandardImplementation()
-    {
-        String path = Path.Combine(Path.GetDirectoryName(Assembly.GetEntryAssembly()!
-                                                                 .Location)!,
-                                   "addins.cache");
-        return new __ConfigurationInfo(path);
-    }
+    /// <remarks>
+    /// While there are certainly ways around it, this trust level is designed to not be dynamically
+    /// influenceable by an end user. You might want to implement a way for administrators to easily alter the list,
+    /// but it is highly discouraged to allow an end user such freedom.
+    /// </remarks>
+    public static IAddInNotSystemTrustedConfigurator TrustProvidedAddInsOnly() =>
+        new __ConfigurationInfo(TrustLevel.TRUSTED_ONLY);
 
     /// <summary>
-    /// Uses the specified path as path for the default cache file.
+    /// The store will only trust user-trusted AddIns, which are a dynamic set of AddIns that are either dynamically loaded
+    /// or manually approved by an end user.
     /// </summary>
-    /// <param name="cachePath">The path to the default cache file.</param>
-    /// <exception cref="ArgumentNullException"/>
-    public static IAddInTrustConfigurator WithDefaultCachePath([DisallowNull] String cachePath)
-    {
-        ExceptionHelpers.ThrowIfArgumentNull(cachePath);
-        return new __ConfigurationInfo(cachePath);
-    }
+    public static IAddInNotUserTrustedConfigurator TrustUserApprovedAddInsOnly() =>
+        new __ConfigurationInfo(TrustLevel.USER_CONFIRMED_ONLY);
+
     /// <summary>
-    /// Uses the specified file as path for the default cache file.
+    /// The store will trust user-trusted AddIns as well as system-trusted AddIns.<para/>
+    /// System-trusted AddIns are are a fixed set of programmatically provided AddIns.<para/>
+    /// User-trusted AddIns are a dynamic set of AddIns that are either dynamically loaded
+    /// or manually approved by an end user.
     /// </summary>
-    /// <param name="cache">The file to be the default cache file.</param>
-    /// <exception cref="ArgumentNullException"/>
-    public static IAddInTrustConfigurator WithDefaultCachePath([DisallowNull] FileInfo cache)
-    {
-        ExceptionHelpers.ThrowIfArgumentNull(cache);
-        return new __ConfigurationInfo(cache.FullName);
-    }
+    public static IAddInNotBothTrustedConfigurator TrustBothProvidedAndUserApprovedAddIns() =>
+        new __ConfigurationInfo(TrustLevel.TRUSTED_AND_USER_CONFIRMED);
+
+    /// <summary>
+    /// The store will trust any AddIn, regardless of it's origin.
+    /// </summary>
+    /// <remarks>
+    /// This option is great if you are building an application where you are certain that only a controlled set of AddIns will be loaded.
+    /// </remarks>
+    public static IAddInTrustFinalizer TrustAllAddIns() =>
+        new __ConfigurationInfo(TrustLevel.ALL);
 }

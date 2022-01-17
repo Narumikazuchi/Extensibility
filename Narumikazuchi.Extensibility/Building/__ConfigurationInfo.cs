@@ -2,19 +2,25 @@
 
 internal sealed partial class __ConfigurationInfo
 {
-    public __ConfigurationInfo(String defaultCachePath)
+    public __ConfigurationInfo(in TrustLevel trustLevel)
     {
-        this._defaultCachePath = defaultCachePath;
+        this._trustLevel = trustLevel;
     }
 
-    public String DefaultCachePath => this._defaultCachePath;
-    public TrustLevel TrustLevel => this._trustLevel;
-    public IEnumerable<Guid> TrustedAddIns => this._trustedAddIns;
-    public IEnumerable<Guid> UserTrustedAddIns => this._userTrustedAddIns;
-    public Boolean ShouldFailWhenNotSystemTrusted => _shouldFailWhenNotSystemTrusted;
-    public Boolean ShouldFailWhenNotUserTrusted => _shouldFailWhenNotUserTrusted;
-    public Action<AddInDefinition>? UserNotificationDelegate => _userNotificationDelegate;
-    public Func<AddInDefinition, Boolean>? UserPromptDelegate => _userPromptDelegate;
+    public TrustLevel TrustLevel => 
+        this._trustLevel;
+    public IEnumerable<Guid> TrustedAddIns => 
+        this._trustedAddIns;
+    public IEnumerable<Guid> UserTrustedAddIns => 
+        this._userTrustedAddIns;
+    public Boolean ShouldFailWhenNotSystemTrusted => 
+        this._shouldFailWhenNotSystemTrusted;
+    public Boolean ShouldFailWhenNotUserTrusted =>
+        this._shouldFailWhenNotUserTrusted;
+    public Action<IAddInDefinition>? UserNotificationDelegate =>
+        this._userNotificationDelegate;
+    public Func<IAddInDefinition, Boolean>? UserPromptDelegate =>
+        this._userPromptDelegate;
 }
 
 // Non-Public
@@ -26,11 +32,10 @@ partial class __ConfigurationInfo :
     private readonly List<Guid> _trustedAddIns = new();
     private readonly List<Guid> _userTrustedAddIns = new();
     private TrustLevel _trustLevel = TrustLevel.NONE;
-    private String _defaultCachePath;
     private Boolean _shouldFailWhenNotSystemTrusted;
     private Boolean _shouldFailWhenNotUserTrusted;
-    private Action<AddInDefinition>? _userNotificationDelegate;
-    private Func<AddInDefinition, Boolean>? _userPromptDelegate;
+    private Action<IAddInDefinition>? _userNotificationDelegate;
+    private Func<IAddInDefinition, Boolean>? _userPromptDelegate;
 }
 
 // IAddInNotBothTrustedConfigurator
@@ -64,7 +69,7 @@ partial class __ConfigurationInfo : IAddInNotBothTrustedConfigurator
         return this;
     }
 
-    IAddInSystemConfiguredNotUserTrustedConfigurator IAddInNotBothTrustedConfigurator.NotifyUserWhenNotSystemTrusted(Action<AddInDefinition> notification)
+    IAddInSystemConfiguredNotUserTrustedConfigurator IAddInNotBothTrustedConfigurator.NotifyUserWhenNotSystemTrusted(Action<IAddInDefinition> notification)
     {
         ExceptionHelpers.ThrowIfArgumentNull(notification);
 
@@ -73,7 +78,7 @@ partial class __ConfigurationInfo : IAddInNotBothTrustedConfigurator
         return this;
     }
 
-    IAddInUserConfiguredNotSystemTrustedConfigurator IAddInNotBothTrustedConfigurator.PromptUserWhenNotUserTrusted(Func<AddInDefinition, Boolean> userPrompt)
+    IAddInUserConfiguredNotSystemTrustedConfigurator IAddInNotBothTrustedConfigurator.PromptUserWhenNotUserTrusted(Func<IAddInDefinition, Boolean> userPrompt)
     {
         ExceptionHelpers.ThrowIfArgumentNull(userPrompt);
 
@@ -100,7 +105,7 @@ partial class __ConfigurationInfo : IAddInNotSystemTrustedConfigurator
         return this;
     }
 
-    IAddInSystemTrustOnlyListConfigurator IAddInNotSystemTrustedConfigurator.NotifyUserWhenNotSystemTrusted(Action<AddInDefinition> notification)
+    IAddInSystemTrustOnlyListConfigurator IAddInNotSystemTrustedConfigurator.NotifyUserWhenNotSystemTrusted(Action<IAddInDefinition> notification)
     {
         ExceptionHelpers.ThrowIfArgumentNull(notification);
 
@@ -127,7 +132,7 @@ partial class __ConfigurationInfo : IAddInNotUserTrustedConfigurator
         return this;
     }
 
-    IAddInUserTrustOnlyListConfigurator IAddInNotUserTrustedConfigurator.PromptUserWhenNotUserTrusted(Func<AddInDefinition, Boolean> userPrompt)
+    IAddInUserTrustOnlyListConfigurator IAddInNotUserTrustedConfigurator.PromptUserWhenNotUserTrusted(Func<IAddInDefinition, Boolean> userPrompt)
     {
         ExceptionHelpers.ThrowIfArgumentNull(userPrompt);
 
@@ -154,7 +159,7 @@ partial class __ConfigurationInfo : IAddInSystemConfiguredNotUserTrustedConfigur
         return this;
     }
 
-    IAddInTrustBothListConfigurator IAddInSystemConfiguredNotUserTrustedConfigurator.PromptUserWhenNotUserTrusted(Func<AddInDefinition, Boolean> userPrompt)
+    IAddInTrustBothListConfigurator IAddInSystemConfiguredNotUserTrustedConfigurator.PromptUserWhenNotUserTrusted(Func<IAddInDefinition, Boolean> userPrompt)
     {
         ExceptionHelpers.ThrowIfArgumentNull(userPrompt);
 
@@ -199,34 +204,6 @@ partial class __ConfigurationInfo : IAddInTrustBothListConfigurator
     }
 }
 
-// IAddInTrustConfigurator
-partial class __ConfigurationInfo : IAddInTrustConfigurator
-{
-    IAddInTrustFinalizer IAddInTrustConfigurator.TrustAllAddIns()
-    {
-        this._trustLevel = TrustLevel.ALL;
-        return this;
-    }
-
-    IAddInNotBothTrustedConfigurator IAddInTrustConfigurator.TrustBothProvidedAndUserApprovedAddIns()
-    {
-        this._trustLevel = TrustLevel.TRUSTED_AND_USER_CONFIRMED;
-        return this;
-    }
-
-    IAddInNotSystemTrustedConfigurator IAddInTrustConfigurator.TrustProvidedAddInsOnly()
-    {
-        this._trustLevel = TrustLevel.TRUSTED_ONLY;
-        return this;
-    }
-
-    IAddInNotUserTrustedConfigurator IAddInTrustConfigurator.TrustUserApprovedAddInsOnly()
-    {
-        this._trustLevel = TrustLevel.USER_CONFIRMED_ONLY;
-        return this;
-    }
-}
-
 // IAddInTrustFinalizer
 partial class __ConfigurationInfo : IAddInTrustFinalizer
 {
@@ -251,7 +228,7 @@ partial class __ConfigurationInfo : IAddInUserConfiguredNotSystemTrustedConfigur
         return this;
     }
 
-    IAddInTrustBothListConfigurator IAddInUserConfiguredNotSystemTrustedConfigurator.NotifyUserWhenNotSystemTrusted(Action<AddInDefinition> notification)
+    IAddInTrustBothListConfigurator IAddInUserConfiguredNotSystemTrustedConfigurator.NotifyUserWhenNotSystemTrusted(Action<IAddInDefinition> notification)
     {
         ExceptionHelpers.ThrowIfArgumentNull(notification);
 

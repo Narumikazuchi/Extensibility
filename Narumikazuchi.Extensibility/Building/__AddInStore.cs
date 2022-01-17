@@ -8,8 +8,7 @@ partial class __AddInStore
 {
     internal __AddInStore(__ConfigurationInfo configuration)
     {
-        this._instances = new Dictionary<AddInDefinition, IAddIn>();
-        this._cache = new Dictionary<String, IList<AddInDefinition>>();
+        this._instances = new Dictionary<IAddInDefinition, IAddIn>();
         this._trustLevel = configuration.TrustLevel;
         this._shouldFailWhenNotSystemTrusted = configuration.ShouldFailWhenNotSystemTrusted;
         this._shouldFailWhenNotUserTrusted = configuration.ShouldFailWhenNotUserTrusted;
@@ -25,130 +24,9 @@ partial class __AddInStore
             this._userTrustedAddInList
                 .Add(item);
         }
-        this._defaultCache = configuration.DefaultCachePath;
-        this.LoadCacheFromDisk();
 
         AppDomain.CurrentDomain
                  .ProcessExit += this.OnShutdown;
-    }
-
-    private IEnumerable<AddInDefinition> LoadCacheFromStream([DisallowNull] String key,
-                                                             [DisallowNull] Stream stream)
-    {
-        ExceptionHelpers.ThrowIfNullOrEmpty(key);
-        ExceptionHelpers.ThrowIfArgumentNull(stream);
-
-        Int64 start = stream.Position;
-        IByteDeserializer<__AddInDefinitionCollection> serializer = CreateByteSerializer
-                                                                   .ForDeserialization()
-                                                                   .ConfigureForOwnedType<__AddInDefinitionCollection>()
-                                                                   .UseDefaultStrategies()
-                                                                   .UseStrategyForType<AddInDefinition[]>(Singleton<__AddInDefinitionSerializationStrategy>.Instance)
-                                                                   .UseStrategyForType<Guid[]>(Singleton<__GuidSerializationStrategy>.Instance)
-                                                                   .Construct();
-        serializer.TryDeserialize(stream: stream,
-                                  result: out __AddInDefinitionCollection? collection);
-        if (collection is null)
-        {
-            collection = new();
-        }
-
-        List<AddInDefinition> result = new();
-        foreach (AddInDefinition definition in (IEnumerable<AddInDefinition>)collection)
-        {
-            if (this._instances
-                    .ContainsKey(definition))
-            {
-                continue;
-            }
-            this._instances
-                .Add(key: definition,
-                     value: new __InactiveAddIn());
-            result.Add(definition);
-        }
-        foreach (Guid trusted in (IEnumerable<Guid>)collection)
-        {
-            this._userTrustedAddInList
-                .Add(item: trusted);
-        }
-
-        if (this._cache
-                .ContainsKey(key))
-        {
-            IList<AddInDefinition> cache = this._cache[key];
-            for (Int32 i = 0;
-                 i < result.Count; 
-                 i++)
-            {
-                cache.Add(result[i]);
-            }
-        }
-        else
-        {
-            this._cache
-                .Add(key: key,
-                     value: result);
-        }
-
-        stream.Position = start;
-        return result;
-    }
-
-    private Boolean WriteCacheToStream([DisallowNull] String key,
-                                       [DisallowNull] Stream stream)
-    {
-        ExceptionHelpers.ThrowIfNullOrEmpty(key);
-        ExceptionHelpers.ThrowIfArgumentNull(stream);
-
-        if (!this._cache
-                 .ContainsKey(key))
-        {
-            return false;
-        }
-
-        IByteSerializer<__AddInDefinitionCollection> serializer = CreateByteSerializer
-                                                                 .ForSerialization()
-                                                                 .ConfigureForOwnedType<__AddInDefinitionCollection>()
-                                                                 .UseDefaultStrategies()
-                                                                 .UseStrategyForType<AddInDefinition[]>(Singleton<__AddInDefinitionSerializationStrategy>.Instance)
-                                                                 .UseStrategyForType<Guid[]>(Singleton<__GuidSerializationStrategy>.Instance)
-                                                                 .Construct();
-        __AddInDefinitionCollection collection = new(definitions: this._cache[key],
-                                                     userTrusted: this._userTrustedAddInList);
-        serializer.Serialize(stream: stream,
-                             graph: collection);
-        return true;
-    }
-
-    private Boolean RegisterAddIn(in AddInDefinition addIn,
-                                  String cacheFilePath)
-    {
-        // Cache not loaded
-        if (!this._cache
-                 .ContainsKey(cacheFilePath))
-        {
-            return false;
-        }
-
-        // AddIn already registered
-        if (this._cache[cacheFilePath]
-                .Contains(item: addIn))
-        {
-            return false;
-        }
-
-        // Not registered? Then do so
-        if (!this._instances
-                 .ContainsKey(addIn))
-        {
-            this._cache[cacheFilePath]
-                .Add(addIn);
-            this._instances[addIn] = new __InactiveAddIn();
-            return true;
-        }
-
-        // No branch triggered? Somehow we end up here, should actually be quite impossible but just to be safe.
-        return false;
     }
 
     private void OnShutdown(Object? sender, 
@@ -157,7 +35,8 @@ partial class __AddInStore
         foreach (IAddIn item in this._instances
                                     .Values)
         {
-            if (item is not __InactiveAddIn)
+            if (item is not __InactiveAddIn &&
+                !item.IsShuttingDown)
             {
                 item.SilentShutdown();
             }
@@ -174,7 +53,7 @@ partial class __AddInStore
     private void OnAddInShutdown(IAddIn sender,
                                  EventArgs? e)
     {
-        AddInDefinition addIn = new(sender);
+        __AddInDefinition addIn = new(sender);
         this._instances[addIn] = new __InactiveAddIn();
         sender.ShutdownInitiated -= this.ShutdownPassThrough;
         sender.ShutdownFinished -= this.OnAddInShutdown;
@@ -182,8 +61,7 @@ partial class __AddInStore
                                    eventArgs: new(addIn));
     }
 
-    private static Assembly? FindAssembly(FileInfo assemblyLocation,
-                                          String assemblyName)
+    private static Assembly? FindAssembly(String assemblyName)
     {
         foreach (Assembly assembly in AppDomain.CurrentDomain
                                                .GetAssemblies()
@@ -191,8 +69,8 @@ partial class __AddInStore
                                                .Where(a => !a.FullName!.StartsWith("Microsoft", StringComparison.InvariantCultureIgnoreCase)))
         {
             if (!assembly.IsDynamic &&
-                assembly.Location == assemblyLocation.FullName &&
-                assembly.FullName == assemblyName)
+                assembly.GetName()
+                        .FullName == assemblyName)
             {
                 return assembly;
             }
@@ -200,14 +78,12 @@ partial class __AddInStore
         return null;
     }
 
-    private readonly IDictionary<String, IList<AddInDefinition>> _cache;
-    private readonly IDictionary<AddInDefinition, IAddIn> _instances;
-    private readonly String _defaultCache;
+    private readonly IDictionary<IAddInDefinition, IAddIn> _instances;
     private readonly Boolean _shouldFailWhenNotSystemTrusted;
     private readonly Boolean _shouldFailWhenNotUserTrusted;
     private readonly TrustLevel _trustLevel;
-    private readonly Action<AddInDefinition>? _userNotificationDelegate;
-    private readonly Func<AddInDefinition, Boolean>? _userPromptDelegate;
+    private readonly Action<IAddInDefinition>? _userNotificationDelegate;
+    private readonly Func<IAddInDefinition, Boolean>? _userPromptDelegate;
     private readonly ISet<Guid> _trustedAddInList = new HashSet<Guid>();
     private readonly ISet<Guid> _userTrustedAddInList = new HashSet<Guid>();
 
@@ -217,22 +93,62 @@ partial class __AddInStore
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private const String TYPES_WERE_INCOMPATIBLE = "The specified AddIn type is not assignable to the actual type of the AddIn to activate.";
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    private const String CACHE_HAS_NOT_BEEN_LOADED = "The specified cache file has not been loaded into the store.";
-    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    private const String ADDIN_HAS_NOT_YET_BEEN_REGISTERED = "The AddIn with the specified Guid has not been registered in the store yet.";
-    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    private const String ADDIN_TYPE_DOES_NOT_INHERIT_STORE_TYPEPARAM = "The specified type can not be used in this store since it does not inherit from it's type parameter.";
-    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    private const String ADDIN_TYPE_IS_NOT_MARKED = "The specified type can not be used in this store since it is not marked with the 'AddInAttribute' attribute.";
+    private const String FORCED_FAIL = "Critical failure while trying to discover untrusted addin.";
 #pragma warning restore
 }
 
 // IAddInActivator
 partial class __AddInStore : IAddInActivator
 {
-    public Boolean IsAddInActive(in AddInDefinition addIn)
+    public Boolean CanAddInBeActivated(IAddInDefinition addIn)
     {
-        if (!this.IsAddInRegistered(addIn: addIn))
+        ExceptionHelpers.ThrowIfArgumentNull(addIn);
+        return this.CanAddInBeActivated(addInIdentifier: addIn.UniqueIdentifier);
+    }
+    public Boolean CanAddInBeActivated(in Guid addInIdentifier)
+    {
+        if (this._trustLevel is TrustLevel.NONE)
+        {
+            return false;
+        }
+        if (this._trustLevel is TrustLevel.ALL)
+        {
+            return true;
+        }
+
+        Boolean result = false;
+        if (this._trustLevel
+                .HasFlag(TrustLevel.TRUSTED_ONLY))
+        {
+            result |= this._trustedAddInList
+                          .Contains(item: addInIdentifier);
+        }
+        if (result)
+        {
+            return true;
+        }
+
+        if (this._trustLevel
+                .HasFlag(TrustLevel.USER_CONFIRMED_ONLY))
+        {
+            result |= this._userTrustedAddInList
+                          .Contains(item: addInIdentifier);
+        }
+
+        if (this._trustLevel is TrustLevel.NOT_TRUSTED)
+        {
+            result |= !this._trustedAddInList
+                           .Contains(item: addInIdentifier);
+            result |= !this._userTrustedAddInList
+                           .Contains(item: addInIdentifier);
+        }
+        return result;
+    }
+
+    public Boolean IsAddInActive(IAddInDefinition addIn)
+    {
+        if (!this._instances
+                 .ContainsKey(addIn))
         {
             return false;
         }
@@ -241,25 +157,20 @@ partial class __AddInStore : IAddInActivator
         return obj is not __InactiveAddIn;
     }
 
-    public Boolean TryActivate(in AddInDefinition definition,
-                               [DisallowNull] out IAddIn addIn)
+    public Boolean TryActivate(IAddInDefinition definition,
+                               [NotNullWhen(true)] out IAddIn? addIn)
     {
+        addIn = default;
         if (!this._instances
                  .ContainsKey(definition))
         {
-            NotAllowed exception = new(message: ADDIN_HAS_NOT_YET_BEEN_REGISTERED);
-            exception.Data
-                     .Add(key: "AddIn definition",
-                          value: definition);
-            throw exception;
+            return false;
         }
 
-        Assembly? assembly = FindAssembly(assemblyLocation: definition.Assembly,
-                                          assemblyName: definition.AssemblyName);
+        Assembly? assembly = FindAssembly(assemblyName: definition.AssemblyName);
         if (assembly is null)
         {
-            assembly = Assembly.LoadFrom(assemblyFile: definition.Assembly
-                                                                 .FullName);
+            return false;
         }
 
         Type? addInType = assembly.GetType(name: definition.TypeName);
@@ -303,55 +214,23 @@ partial class __AddInStore : IAddInActivator
                                         eventArgs: EventArgs.Empty);
             return true;
         }
-        addIn = this._instances[definition];
         return false;
     }
-    public Boolean TryActivate(in Guid guid,
-                               in AlphanumericVersion version,
-                               [DisallowNull] out IAddIn addIn)
-    {
-        ExceptionHelpers.ThrowIfArgumentNull(version);
-
-        foreach (AddInDefinition key in this._instances
-                                            .Keys)
-        {
-            if (key.UniqueIdentifier == guid &&
-                key.Version == version)
-            {
-                return this.TryActivate(definition: key,
-                                        addIn: out addIn);
-            }
-        }
-
-        NotAllowed exception = new(message: ADDIN_HAS_NOT_YET_BEEN_REGISTERED);
-        exception.Data
-                 .Add(key: "AddIn GUID",
-                      value: guid);
-        exception.Data
-                 .Add(key: "AddIn Version",
-                      value: version);
-        throw exception;
-    }
-    public Boolean TryActivate<TAddIn>(in AddInDefinition definition,
-                                       [DisallowNull] out TAddIn addIn)
+    public Boolean TryActivate<TAddIn>(IAddInDefinition definition,
+                                       [NotNullWhen(true)] out TAddIn? addIn)
         where TAddIn : IAddIn<TAddIn>
     {
+        addIn = default;
         if (!this._instances
                  .ContainsKey(definition))
         {
-            NotAllowed exception = new(message: ADDIN_HAS_NOT_YET_BEEN_REGISTERED);
-            exception.Data
-                     .Add(key: "AddIn definition",
-                          value: definition);
-            throw exception;
+            return false;
         }
 
-        Assembly? assembly = FindAssembly(assemblyLocation: definition.Assembly,
-                                          assemblyName: definition.AssemblyName);
+        Assembly? assembly = FindAssembly(assemblyName: definition.AssemblyName);
         if (assembly is null)
         {
-            assembly = Assembly.LoadFrom(assemblyFile: definition.Assembly
-                                                                 .FullName);
+            return false;
         }
 
         Type? addInType = assembly.GetType(name: definition.TypeName);
@@ -387,56 +266,23 @@ partial class __AddInStore : IAddInActivator
                                         eventArgs: EventArgs.Empty);
             return true;
         }
-        addIn = (TAddIn)this._instances[definition];
         return false;
     }
-    public Boolean TryActivate<TAddIn>(in Guid guid,
-                                       in AlphanumericVersion version,
-                                       [DisallowNull] out TAddIn addIn)
-        where TAddIn : IAddIn<TAddIn>
+    public Boolean TryActivate<TConfigurationOptions>(IAddInDefinition definition,
+                                                      TConfigurationOptions? options,
+                                                      [NotNullWhen(true)] out IAddIn? addIn)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(version);
-
-        foreach (AddInDefinition key in this._instances
-                                            .Keys)
-        {
-            if (key.UniqueIdentifier == guid &&
-                key.Version == version)
-            {
-                return this.TryActivate(definition: key,
-                                        addIn: out addIn);
-            }
-        }
-
-        NotAllowed exception = new(message: ADDIN_HAS_NOT_YET_BEEN_REGISTERED);
-        exception.Data
-                 .Add(key: "AddIn GUID",
-                      value: guid);
-        exception.Data
-                 .Add(key: "AddIn Version",
-                      value: version);
-        throw exception;
-    }
-    public Boolean TryActivate<TConfigurationOptions>(in AddInDefinition definition,
-                                                      [AllowNull] TConfigurationOptions? options,
-                                                      [DisallowNull] out IAddIn addIn)
-    {
+        addIn = default;
         if (!this._instances
                  .ContainsKey(definition))
         {
-            NotAllowed exception = new(message: ADDIN_HAS_NOT_YET_BEEN_REGISTERED);
-            exception.Data
-                     .Add(key: "AddIn definition",
-                          value: definition);
-            throw exception;
+            return false;
         }
 
-        Assembly? assembly = FindAssembly(definition.Assembly,
-                                          definition.AssemblyName);
+        Assembly? assembly = FindAssembly(assemblyName: definition.AssemblyName);
         if (assembly is null)
         {
-            assembly = Assembly.LoadFrom(assemblyFile: definition.Assembly
-                                                                 .FullName);
+            return false;
         }
 
         Type? addInType = assembly.GetType(definition.TypeName);
@@ -478,58 +324,24 @@ partial class __AddInStore : IAddInActivator
                                         eventArgs: EventArgs.Empty);
             return true;
         }
-        addIn = this._instances[definition];
         return false;
     }
-    public Boolean TryActivate<TConfigurationOptions>(in Guid guid,
-                                                      in AlphanumericVersion version,
-                                                      [AllowNull] TConfigurationOptions? options,
-                                                      [DisallowNull] out IAddIn addIn)
-    {
-        ExceptionHelpers.ThrowIfArgumentNull(version);
-
-        foreach (AddInDefinition key in this._instances
-                                            .Keys)
-        {
-            if (key.UniqueIdentifier == guid &&
-                key.Version == version)
-            {
-                return this.TryActivate(definition: key,
-                                        options: options,
-                                        addIn: out addIn);
-            }
-        }
-
-        NotAllowed exception = new(message: ADDIN_HAS_NOT_YET_BEEN_REGISTERED);
-        exception.Data
-                 .Add(key: "AddIn GUID",
-                      value: guid);
-        exception.Data
-                 .Add(key: "AddIn Version",
-                      value: version);
-        throw exception;
-    }
-    public Boolean TryActivate<TAddIn, TConfigurationOptions>(in AddInDefinition definition,
-                                                              [AllowNull] TConfigurationOptions? options,
-                                                              [DisallowNull] out TAddIn addIn)
+    public Boolean TryActivate<TAddIn, TConfigurationOptions>(IAddInDefinition definition,
+                                                              TConfigurationOptions? options,
+                                                              [NotNullWhen(true)] out TAddIn? addIn)
         where TAddIn : IAddIn<TAddIn, TConfigurationOptions>
     {
+        addIn = default;
         if (!this._instances
                  .ContainsKey(definition))
         {
-            NotAllowed exception = new(message: ADDIN_HAS_NOT_YET_BEEN_REGISTERED);
-            exception.Data
-                     .Add(key: "AddIn definition",
-                          value: definition);
-            throw exception;
+            return false;
         }
 
-        Assembly? assembly = FindAssembly(definition.Assembly,
-                                          definition.AssemblyName);
+        Assembly? assembly = FindAssembly(assemblyName: definition.AssemblyName);
         if (assembly is null)
         {
-            assembly = Assembly.LoadFrom(assemblyFile: definition.Assembly
-                                                                 .FullName);
+            return false;
         }
 
         Type? addInType = assembly.GetType(definition.TypeName);
@@ -565,546 +377,282 @@ partial class __AddInStore : IAddInActivator
                                         eventArgs: EventArgs.Empty);
             return true;
         }
-        addIn = (TAddIn)this._instances[definition];
         return false;
     }
-    public Boolean TryActivate<TAddIn, TConfigurationOptions>(in Guid guid,
-                                                              in AlphanumericVersion version,
-                                                              [AllowNull] TConfigurationOptions? options,
-                                                              [DisallowNull] out TAddIn addIn)
-        where TAddIn : IAddIn<TAddIn, TConfigurationOptions>
-    {
-        ExceptionHelpers.ThrowIfArgumentNull(version);
+}
 
-        foreach (AddInDefinition key in this._instances
-                                            .Keys)
+// IAddInDiscoverer
+partial class __AddInStore : IAddInDiscoverer
+{
+    [return: NotNull]
+    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssemblies([DisallowNull] IEnumerable<Assembly> assemblies)
+    {
+        ExceptionHelpers.ThrowIfArgumentNull(assemblies);
+
+        List<IAddInDefinition> result = new();
+        foreach (Assembly assembly in assemblies)
         {
-            if (key.UniqueIdentifier == guid &&
-                key.Version == version)
+            result.AddRange(this.DiscoverAddInsContainedInAssembly(assembly: assembly));
+        }
+        return result;
+    }
+    [return: NotNull]
+    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssemblies([DisallowNull] IEnumerable<FileInfo> assemblyFiles)
+    {
+        ExceptionHelpers.ThrowIfArgumentNull(assemblyFiles);
+
+        List<IAddInDefinition> result = new();
+        foreach (FileInfo assemblyFile in assemblyFiles)
+        {
+            if (!assemblyFile.Exists)
             {
-                return this.TryActivate(definition: key,
-                                        options: options,
-                                        addIn: out addIn);
+                continue;
             }
+            result.AddRange(this.DiscoverAddInsContainedInAssembly(assemblyFile: assemblyFile));
         }
-
-        NotAllowed exception = new(message: ADDIN_HAS_NOT_YET_BEEN_REGISTERED);
-        exception.Data
-                 .Add(key: "AddIn GUID",
-                      value: guid);
-        exception.Data
-                 .Add(key: "AddIn Version",
-                      value: version);
-        throw exception;
+        return result;
     }
-}
-
-// IAddInCache
-partial class __AddInStore : IAddInCache
-{
-    public IEnumerable<AddInDefinition> EnumerateCachedAddIns() =>
-        this;
-}
-
-// IAddInClearCache
-partial class __AddInStore : IAddInClearCache
-{
-    public Boolean ClearInMemoryCache() =>
-        this.ClearInMemoryCache(key: this._defaultCache);
-    public Boolean ClearInMemoryCache([DisallowNull] FileInfo cache)
+    [return: NotNull]
+    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssemblies([DisallowNull] DirectoryInfo directory)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(cache);
-        return this.ClearInMemoryCache(key: cache.FullName);
+        ExceptionHelpers.ThrowIfArgumentNull(directory);
+
+        List<IAddInDefinition> result = new();
+        foreach (FileInfo assemblyFile in directory.EnumerateFiles(searchPattern: "*.dll"))
+        {
+            if (!assemblyFile.Exists)
+            {
+                continue;
+            }
+            result.AddRange(this.DiscoverAddInsContainedInAssembly(assemblyFile: assemblyFile));
+        }
+        return result;
     }
-    public Boolean ClearInMemoryCache([DisallowNull] String key)
+    [return: NotNull]
+    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssemblies([DisallowNull] String directoryPath)
     {
-        ExceptionHelpers.ThrowIfNullOrEmpty(key);
-        if (!this._cache
-                 .ContainsKey(key))
-        {
-            return false;
-        }
+        ExceptionHelpers.ThrowIfArgumentNull(directoryPath);
 
-        this._cache[key]
-            .Clear();
-        return true;
-    }
-}
-
-// IAddInLoadCache
-partial class __AddInStore : IAddInLoadCache
-{
-    public IEnumerable<AddInDefinition> LoadCacheFromDisk() =>
-        this.LoadCacheFromDisk(this._defaultCache);
-    public IEnumerable<AddInDefinition> LoadCacheFromDisk([DisallowNull] FileInfo cache)
-    {
-        ExceptionHelpers.ThrowIfArgumentNull(cache);
-        return this.LoadCacheFromDisk(cache.FullName);
-    }
-    public IEnumerable<AddInDefinition> LoadCacheFromDisk([DisallowNull] String cacheFilePath)
-    {
-        ExceptionHelpers.ThrowIfNullOrEmpty(cacheFilePath);
-
-        if (!File.Exists(cacheFilePath))
+        List<IAddInDefinition> result = new();
+        foreach (String assemblyFile in Directory.EnumerateFiles(path: directoryPath, 
+                                                                   searchPattern: "*.dll"))
         {
-            using FileStream stream = File.Create(path: cacheFilePath);
-            this._cache
-                .Add(key: cacheFilePath,
-                     value: new List<AddInDefinition>());
-            this.WriteCacheToStream(key: cacheFilePath, 
-                                    stream: stream);
-            return Array.Empty<AddInDefinition>();
-        }
-        else
-        {
-            using FileStream stream = File.OpenRead(cacheFilePath);
-            return this.LoadCacheFromStream(key: cacheFilePath,
-                                            stream: stream);
-        }
-    }
-}
-
-// IAddInRegister
-partial class __AddInStore : IAddInRegister
-{
-    public Boolean CanAddInBeRegistered(in AddInDefinition addIn) =>
-        this.CanAddInBeRegistered(addInIdentifier: addIn.UniqueIdentifier);
-    public Boolean CanAddInBeRegistered(in Guid addInIdentifier)
-    {
-        if (this._trustLevel is TrustLevel.NONE)
-        {
-            return false;
-        }
-        if (this._trustLevel is TrustLevel.ALL)
-        {
-            return true;
-        }
-
-        Boolean result = false;
-        if (this._trustLevel
-                .HasFlag(TrustLevel.TRUSTED_ONLY))
-        {
-            result |= this._trustedAddInList
-                          .Contains(item: addInIdentifier);
-        }
-        if (result)
-        {
-            return true;
-        }
-
-        if (this._trustLevel
-                .HasFlag(TrustLevel.USER_CONFIRMED_ONLY))
-        {
-            result |= this._userTrustedAddInList
-                          .Contains(item: addInIdentifier);
-        }
-
-        if (this._trustLevel is TrustLevel.NOT_TRUSTED)
-        {
-            result |= !this._trustedAddInList
-                           .Contains(item: addInIdentifier);
-            result |= !this._userTrustedAddInList
-                           .Contains(item: addInIdentifier);
+            if (!File.Exists(assemblyFile))
+            {
+                continue;
+            }
+            result.AddRange(this.DiscoverAddInsContainedInAssembly(assemblyPath: assemblyFile));
         }
         return result;
     }
 
-    public Boolean IsAddInRegistered(in AddInDefinition addIn) =>
-        this._instances
-            .ContainsKey(addIn);
-    public Boolean IsAddInRegistered(in Guid guid,
-                                     in AlphanumericVersion version)
+    [return: NotNull]
+    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssembly([DisallowNull] FileInfo assemblyFile)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(version);
+        ExceptionHelpers.ThrowIfArgumentNull(assemblyFile);
 
-        foreach (AddInDefinition addIn in this._instances
-                                              .Keys)
-        {
-            if (addIn.UniqueIdentifier == guid &&
-                addIn.Version == version)
-            {
-                return true;
-            }
-        }
-        return false;
+        return this.DiscoverAddInsContainedInAssembly(assemblyPath: assemblyFile.FullName);
     }
-    public Boolean IsAddInRegistered(in AddInDefinition addIn,
-                                     [DisallowNull] FileInfo cache)
+    [return: NotNull]
+    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssembly([DisallowNull] String assemblyPath)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(cache);
-        return this.IsAddInRegistered(addIn: addIn,
-                                      key: cache.FullName);
-    }
-    public Boolean IsAddInRegistered(in Guid guid,
-                                     in AlphanumericVersion version,
-                                     [DisallowNull] FileInfo cache)
-    {
-        ExceptionHelpers.ThrowIfArgumentNull(cache);
-        return this.IsAddInRegistered(guid: guid,
-                                      version: version,   
-                                      key: cache.FullName);
-    }
-    public Boolean IsAddInRegistered(in AddInDefinition addIn,
-                                     [DisallowNull] String key)
-    {
-        ExceptionHelpers.ThrowIfNullOrEmpty(key);
-        if (!this._cache
-                 .ContainsKey(key))
-        {
-            KeyNotFoundException exception = new(message: CACHE_HAS_NOT_BEEN_LOADED);
-            exception.Data
-                     .Add(key: "Fullpath",
-                          value: key);
-            throw exception;
-        }
+        ExceptionHelpers.ThrowIfArgumentNull(assemblyPath);
 
-        for (Int32 i = 0;
-             i < this._cache[key]
-                     .Count;
-             i++)
+        if (!File.Exists(assemblyPath))
         {
-            if (this._cache[key][i]
-                    .Equals(other: addIn))
-            {
-                return true;
-            }
+            return Array.Empty<IAddInDefinition>();
         }
-        return false;
+        Assembly assembly = Assembly.LoadFrom(assemblyFile: assemblyPath);
+        return this.DiscoverAddInsContainedInAssembly(assembly: assembly);
     }
-    public Boolean IsAddInRegistered(in Guid guid,
-                                     in AlphanumericVersion version,
-                                     [DisallowNull] String key)
+    [return: NotNull]
+    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssembly([DisallowNull] Byte[] rawAssembly)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(version);
-        ExceptionHelpers.ThrowIfArgumentNull(key);
-        if (!this._cache
-                 .ContainsKey(key))
-        {
-            KeyNotFoundException exception = new(message: CACHE_HAS_NOT_BEEN_LOADED);
-            exception.Data
-                     .Add(key: "Fullpath",
-                          value: key);
-            throw exception;
-        }
+        ExceptionHelpers.ThrowIfArgumentNull(rawAssembly);
 
-        for (Int32 i = 0;
-             i < this._cache[key]
-                     .Count;
-             i++)
-        {
-            if (this._cache[key][i]
-                    .UniqueIdentifier == guid &&
-                this._cache[key][i]
-                    .Version == version)
-            {
-                return true;
-            }
-        }
-        return false;
+        Assembly assembly = Assembly.Load(rawAssembly: rawAssembly);
+        return this.DiscoverAddInsContainedInAssembly(assembly: assembly);
     }
-}
+    [return: NotNull]
+    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssembly([DisallowNull] Stream assemblyStream)
+    {
+        ExceptionHelpers.ThrowIfArgumentNull(assemblyStream);
 
-// IAddInRegistrator
-partial class __AddInStore : IAddInRegistrator
-{
-    public Boolean TryRegisterAddIn(in AddInDefinition addIn) =>
-        this.TryRegisterAddIn(addIn: addIn,
-                              cacheFilePath: this._defaultCache);
-    public Boolean TryRegisterAddIn(in AddInDefinition addIn,
-                                    [DisallowNull] FileInfo cache)
-    {
-        ExceptionHelpers.ThrowIfArgumentNull(cache);
-        return this.TryRegisterAddIn(addIn: addIn,
-                                     cacheFilePath: cache.FullName);
-    }
-    public Boolean TryRegisterAddIn(in AddInDefinition addIn,
-                                    [DisallowNull] String cacheFilePath)
-    {
-        ExceptionHelpers.ThrowIfNullOrEmpty(cacheFilePath);
-        if (!File.Exists(cacheFilePath))
+        if (!assemblyStream.CanRead)
         {
-            FileNotFoundException exception = new();
-            exception.Data
-                     .Add(key: "Fullpath",
-                          value: cacheFilePath);
-            throw exception;
+            return Array.Empty<IAddInDefinition>();
         }
+        using MemoryStream stream = new();
+        assemblyStream.CopyTo(stream);
+        return this.DiscoverAddInsContainedInAssembly(rawAssembly: stream.ToArray());
+    }
+    [return: NotNull]
+    public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssembly([DisallowNull] Assembly assembly)
+    {
+        ExceptionHelpers.ThrowIfArgumentNull(assembly);
 
         if (this._trustLevel is TrustLevel.NONE)
         {
-            return false;
+            yield break;
         }
 
-        if (this._trustLevel is TrustLevel.ALL)
+        foreach (Type type in assembly.ExportedTypes)
         {
-            return this.RegisterAddIn(addIn: addIn,
-                                      cacheFilePath: cacheFilePath);
-        }
-
-        Boolean trusted = false;
-        if (this._trustLevel
-                .HasFlag(TrustLevel.USER_CONFIRMED_ONLY) &&
-            this._userTrustedAddInList
-                .Contains(item: addIn.UniqueIdentifier))
-        {
-            trusted = true;
-        }
-
-        if (this._trustLevel
-                .HasFlag(TrustLevel.TRUSTED_ONLY) &&
-            this._trustedAddInList
-                .Contains(item: addIn.UniqueIdentifier))
-        {
-            trusted = true;
-        }
-
-        if (this._trustLevel is TrustLevel.NOT_TRUSTED &&
-            this._trustedAddInList
-                .Contains(item: addIn.UniqueIdentifier) ||
-            this._userTrustedAddInList
-                .Contains(item: addIn.UniqueIdentifier))
-        {
-            return false;
-        }
-
-        if (!trusted)
-        {
-            if (this._trustLevel
-                    .HasFlag(TrustLevel.TRUSTED_ONLY))
+            if (!AttributeResolver.HasAttribute<AddInAttribute>(info: type))
             {
-                if (this._userPromptDelegate is not null &&
-                    this._userPromptDelegate
-                        .Invoke(addIn))
-                {
-                    this._userTrustedAddInList
-                        .Add(item: addIn.UniqueIdentifier);
-                    return this.RegisterAddIn(addIn: addIn,
-                                              cacheFilePath: cacheFilePath);
-                }
-                if (this._shouldFailWhenNotUserTrusted)
-                {
-                    InvalidOperationException exception = new();
-                    throw exception;
-                }
-
+                continue;
             }
-            else if (this._trustLevel
-                         .HasFlag(TrustLevel.TRUSTED_ONLY))
+            Boolean cancel = true;
+            foreach (Type @interface in type.GetInterfaces())
             {
-                if (this._userNotificationDelegate is not null)
+                if (!@interface.IsGenericType)
                 {
-                    this._userNotificationDelegate
-                        .Invoke(addIn);
+                    continue;
                 }
-                if (this._shouldFailWhenNotSystemTrusted)
+
+                if (@interface.GetGenericTypeDefinition() == typeof(IAddIn<>))
                 {
-                    InvalidOperationException exception = new();
-                    throw exception;
+                    cancel = false;
+                    break;
+                }
+                if (@interface.GetGenericTypeDefinition() == typeof(IAddIn<,>))
+                {
+                    cancel = false;
+                    break;
                 }
             }
-            return false;
-        }
-
-        return this.RegisterAddIn(addIn: addIn,
-                                  cacheFilePath: cacheFilePath);
-    }
-    public Boolean TryRegisterAddIn([DisallowNull] Type addInType)
-    {
-        ExceptionHelpers.ThrowIfArgumentNull(addInType);
-        return this.TryRegisterAddIn(addInType: addInType,
-                                     cacheFilePath: this._defaultCache);
-    }
-    public Boolean TryRegisterAddIn([DisallowNull] Type addInType,
-                                    [DisallowNull] FileInfo cache)
-    {
-        ExceptionHelpers.ThrowIfArgumentNull(addInType);
-        ExceptionHelpers.ThrowIfArgumentNull(cache);
-        return this.TryRegisterAddIn(addInType: addInType,
-                                     cacheFilePath: cache.FullName);
-    }
-    public Boolean TryRegisterAddIn([DisallowNull] Type addInType,
-                                    [DisallowNull] String cacheFilePath)
-    {
-        ExceptionHelpers.ThrowIfArgumentNull(addInType);
-        ExceptionHelpers.ThrowIfNullOrEmpty(cacheFilePath);
-        if (!AttributeResolver.HasAttribute<AddInAttribute>(addInType))
-        {
-            NotAllowed exception = new(message: ADDIN_TYPE_IS_NOT_MARKED,
-                                       ("Typename", addInType.FullName));
-            throw exception;
-        }
-        Boolean implements = false;
-        foreach (Type @interface in addInType.GetInterfaces())
-        {
-            if (!@interface.IsGenericType)
+            if (cancel)
             {
                 continue;
             }
 
-            if (@interface.GetGenericTypeDefinition() == typeof(IAddIn<>))
+            AddInAttribute attribute = AttributeResolver.FetchOnlyAllowedAttribute<AddInAttribute>(type);
+            IAddInDefinition addIn = new __AddInDefinition(guid: attribute.UniqueIdentifier,
+                                                           name: attribute.Name,
+                                                           version: attribute.Version,
+                                                           type: type);
+
+            this.AddInDiscovering?
+                .Invoke(sender: this,
+                        eventArgs: new(addIn));
+
+            Boolean trusted = false;
+            if (this._trustLevel is TrustLevel.ALL)
             {
-                implements = true;
-                break;
+                trusted = true;
             }
-            if (@interface.GetGenericTypeDefinition() == typeof(IAddIn<,>))
+
+            if (!trusted &&
+                this._trustLevel
+                    .HasFlag(TrustLevel.USER_CONFIRMED_ONLY) &&
+                this._userTrustedAddInList
+                    .Contains(item: addIn.UniqueIdentifier))
             {
-                implements = true;
-                break;
+                trusted = true;
             }
+
+            if (!trusted &&
+                this._trustLevel
+                    .HasFlag(TrustLevel.TRUSTED_ONLY) &&
+                this._trustedAddInList
+                    .Contains(item: addIn.UniqueIdentifier))
+            {
+                trusted = true;
+            }
+
+            if (!trusted)
+            {
+                if (this._trustLevel
+                        .HasFlag(TrustLevel.TRUSTED_ONLY))
+                {
+                    if (this._userPromptDelegate is not null &&
+                        this._userPromptDelegate
+                            .Invoke(addIn))
+                    {
+                        this._userTrustedAddInList
+                            .Add(item: addIn.UniqueIdentifier);
+                        yield return addIn;
+                    }
+                    if (this._shouldFailWhenNotUserTrusted)
+                    {
+                        InvalidOperationException exception = new(message: FORCED_FAIL);
+                        exception.Data
+                                 .Add(key: "AddIn",
+                                      value: addIn);
+                        throw exception;
+                    }
+                    continue;
+
+                }
+                else if (this._trustLevel
+                             .HasFlag(TrustLevel.TRUSTED_ONLY))
+                {
+                    if (this._userNotificationDelegate is not null)
+                    {
+                        this._userNotificationDelegate
+                            .Invoke(addIn);
+                    }
+                    if (this._shouldFailWhenNotSystemTrusted)
+                    {
+                        InvalidOperationException exception = new(message: FORCED_FAIL);
+                        exception.Data
+                                 .Add(key: "AddIn",
+                                      value: addIn);
+                        throw exception;
+                    }
+                    continue;
+                }
+            }
+
+            this.AddInDiscovered?
+                .Invoke(sender: this,
+                        eventArgs: new(addIn));
+            this._instances
+                .Add(key: addIn,
+                     value: new __InactiveAddIn());
+            yield return addIn;
         }
-        if (!implements)
-        {
-            NotAllowed exception = new(message: ADDIN_TYPE_DOES_NOT_INHERIT_STORE_TYPEPARAM,
-                                       ("Expected Types", typeof(IAddIn<>).FullName + " or " + typeof(IAddIn<,>).FullName),
-                                       ("Received Type", addInType.FullName));
-            throw exception;
-        }
-
-        AddInAttribute attribute = AttributeResolver.FetchOnlyAllowedAttribute<AddInAttribute>(info: addInType);
-        AddInDefinition definition = new(attribute.UniqueIdentifier,
-                                         attribute.Name,
-                                         attribute.Version,
-                                         addInType);
-        return this.TryRegisterAddIn(addIn: definition,
-                                     cacheFilePath: cacheFilePath);
+        yield break;
     }
 
-    public Boolean TryRegisterAddIns([DisallowNull] FileInfo assembly)
+    public Boolean IsAddInDiscovered([DisallowNull] IAddInDefinition addIn)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(assembly);
-        return this.TryRegisterAddIns(assemblyFilePath: assembly.FullName,
-                                      cacheFilePath: this._defaultCache);
-    }
-    public Boolean TryRegisterAddIns([DisallowNull] FileInfo assembly,
-                                     [DisallowNull] FileInfo cache)
-    {
-        ExceptionHelpers.ThrowIfArgumentNull(cache);
-        return this.TryRegisterAddIns(assemblyFilePath: assembly.FullName,
-                                      cacheFilePath: cache.FullName);
-    }
-    public Boolean TryRegisterAddIns([DisallowNull] FileInfo assembly,
-                                     [DisallowNull] String cacheFilePath)
-    {
-        ExceptionHelpers.ThrowIfArgumentNull(assembly);
-        ExceptionHelpers.ThrowIfNullOrEmpty(cacheFilePath);
-        return this.TryRegisterAddIns(assemblyFilePath: assembly.FullName,
-                                      cacheFilePath: cacheFilePath);
-    }
-    public Boolean TryRegisterAddIns([DisallowNull] String assemblyFilePath)
-    {
-        ExceptionHelpers.ThrowIfNullOrEmpty(assemblyFilePath);
-        return this.TryRegisterAddIns(assemblyFilePath: assemblyFilePath,
-                                      cacheFilePath: this._defaultCache);
-    }
-    public Boolean TryRegisterAddIns([DisallowNull] String assemblyFilePath,
-                                     [DisallowNull] FileInfo cache)
-    {
-        ExceptionHelpers.ThrowIfArgumentNull(cache);
-        return this.TryRegisterAddIns(assemblyFilePath: assemblyFilePath,
-                                      cacheFilePath: cache.FullName);
-    }
-    public Boolean TryRegisterAddIns([DisallowNull] String assemblyFilePath,
-                                     [DisallowNull] String cacheFilePath)
-    {
-        ExceptionHelpers.ThrowIfNullOrEmpty(assemblyFilePath);
-        ExceptionHelpers.ThrowIfNullOrEmpty(cacheFilePath);
-        if (!File.Exists(assemblyFilePath))
-        {
-            FileNotFoundException exception = new();
-            exception.Data
-                     .Add(key: "Fullpath",
-                          value: assemblyFilePath);
-            throw exception;
-        }
-        if (!File.Exists(cacheFilePath))
-        {
-            FileNotFoundException exception = new();
-            exception.Data
-                     .Add(key: "Fullpath",
-                          value: cacheFilePath);
-            throw exception;
-        }
+        ExceptionHelpers.ThrowIfArgumentNull(addIn);
 
-        Assembly assembly = Assembly.LoadFrom(assemblyFile: assemblyFilePath);
-        Boolean result = false;
-        IEnumerable<AddInDefinition> enumerable = new __AddInEnumerator(assembly);
-        foreach (AddInDefinition item in enumerable)
-        {
-            result |= this.TryRegisterAddIn(addIn: item,
-                                            cacheFilePath: cacheFilePath);
-        }
-        return result;
+        return this._instances
+                   .ContainsKey(addIn);
     }
-
-    public Boolean TryRegisterAddIns([DisallowNull] Byte[] rawAssembly) =>
-        this.TryRegisterAddIns(rawAssembly: rawAssembly,
-                               cacheFilePath: this._defaultCache);
-    public Boolean TryRegisterAddIns([DisallowNull] Byte[] rawAssembly, 
-                                     [DisallowNull] FileInfo cache)
-    {
-        ExceptionHelpers.ThrowIfArgumentNull(cache);
-        return this.TryRegisterAddIns(rawAssembly: rawAssembly,
-                                      cacheFilePath: cache.FullName);
-    }
-    public Boolean TryRegisterAddIns([DisallowNull] Byte[] rawAssembly, 
-                                     [DisallowNull] String cacheFilePath)
-    {
-        ExceptionHelpers.ThrowIfArgumentNull(rawAssembly);
-        ExceptionHelpers.ThrowIfArgumentNull(cacheFilePath);
-        if (!File.Exists(cacheFilePath))
-        {
-            FileNotFoundException exception = new();
-            exception.Data
-                     .Add(key: "Fullpath",
-                          value: cacheFilePath);
-            throw exception;
-        }
-
-        Assembly assembly = Assembly.Load(rawAssembly: rawAssembly);
-        Boolean result = false;
-        IEnumerable<AddInDefinition> enumerable = new __AddInEnumerator(assembly);
-        foreach (AddInDefinition item in enumerable)
-        {
-            result |= this.TryRegisterAddIn(addIn: item,
-                                            cacheFilePath: cacheFilePath);
-        }
-        return result;
-    }
-
-    public Boolean TryRegisterAddIns([DisallowNull] Stream assemblyStream) =>
-        this.TryRegisterAddIns(assemblyStream: assemblyStream,
-                               cacheFilePath: this._defaultCache);
-    public Boolean TryRegisterAddIns([DisallowNull] Stream assemblyStream, 
-                                     [DisallowNull] FileInfo cache)
-    {
-        ExceptionHelpers.ThrowIfArgumentNull(cache);
-        return this.TryRegisterAddIns(assemblyStream: assemblyStream,
-                                      cacheFilePath: cache.FullName);
-    }
-    public Boolean TryRegisterAddIns([DisallowNull] Stream assemblyStream, 
-                                     [DisallowNull] String cacheFilePath)
-    {
-        ExceptionHelpers.ThrowIfArgumentNull(assemblyStream);
-
-        Int32 count = (Int32)(assemblyStream.Length - assemblyStream.Position);
-        Byte[] assembly = new Byte[count];
-        assemblyStream.Read(buffer: assembly,
-                            offset: 0,
-                            count: count);
-        return this.TryRegisterAddIns(rawAssembly: assembly,
-                                      cacheFilePath: cacheFilePath);
-    }
-
 }
 
 // IAddInStore
 partial class __AddInStore : IAddInStore
 {
-    public IEnumerable<IAddIn> EnumerateActiveAddIns()
+    public IEnumerable<IAddInDefinition> EnumerateActiveAddIns()
     {
-        foreach (IAddIn addIn in this._instances.Values)
+        foreach (IAddInDefinition addIn in this._instances.Keys)
         {
-            if (addIn is not __InactiveAddIn)
+            if (this._instances[addIn] is not __InactiveAddIn)
+            {
+                yield return addIn;
+            }
+        }
+        yield break;
+    }
+
+    public IEnumerable<IAddInDefinition> EnumerateAllAddIns()
+    {
+        foreach (IAddInDefinition addIn in this._instances.Keys)
+        {
+            yield return addIn;
+        }
+        yield break;
+    }
+
+    public IEnumerable<IAddInDefinition> EnumerateInactiveAddIns()
+    {
+        foreach (IAddInDefinition addIn in this._instances.Keys)
+        {
+            if (this._instances[addIn] is __InactiveAddIn)
             {
                 yield return addIn;
             }
@@ -1114,377 +662,90 @@ partial class __AddInStore : IAddInStore
 
     public event EventHandler<IAddInStore, AddInDefinitionEventArgs>? AddInActivating;
     public event EventHandler<IAddIn>? AddInActivated;
+    public event EventHandler<IAddInStore, AddInDefinitionEventArgs>? AddInDiscovering;
+    public event EventHandler<IAddInStore, AddInDefinitionEventArgs>? AddInDiscovered;
     public event EventHandler<IAddIn>? AddInShuttingDown;
     public event EventHandler<IAddInStore, AddInDefinitionEventArgs>? AddInShutdown;
 }
 
-// IAddInUnloadCache
-partial class __AddInStore : IAddInUnloadCache
+// IAddInTrustList
+partial class __AddInStore : IAddInTrustList
 {
-    public Boolean UnloadCacheFromMemory() =>
-        this.UnloadCacheFromMemory(cacheFilePath: this._defaultCache);
-    public Boolean UnloadCacheFromMemory([DisallowNull] FileInfo cache)
-    {
-        ExceptionHelpers.ThrowIfArgumentNull(cache);
-        return this.UnloadCacheFromMemory(cacheFilePath: cache.FullName);
-    }
-    public Boolean UnloadCacheFromMemory([DisallowNull] String cacheFilePath)
-    {
-        ExceptionHelpers.ThrowIfNullOrEmpty(cacheFilePath);
+    public void ClearUserTrustedList() =>
+        this._userTrustedAddInList
+            .Clear();
 
-        if (!this._cache
-                 .ContainsKey(cacheFilePath))
-        {
-            return false;
-        }
+    public void ReadUserTrustedListFrom([DisallowNull] FileInfo file)
+    {
+        ExceptionHelpers.ThrowIfArgumentNull(file);
 
-        foreach (AddInDefinition item in this._cache[cacheFilePath])
-        {
-            if (this._instances
-                    .ContainsKey(item))
-            {
-                this._instances[item]
-                    .Shutdown();
-                this._instances
-                    .Remove(key: item);
-            }
-        }
-        this._cache.Remove(key: cacheFilePath);
-        return true;
+        this.ReadUserTrustedListFrom(filePath: file.FullName);
     }
-}
+    public void ReadUserTrustedListFrom([DisallowNull] String filePath)
+    {
+        ExceptionHelpers.ThrowIfArgumentNull(filePath);
 
-// IAddInUnregistrator
-partial class __AddInStore : IAddInUnregistrator
-{
-    public Boolean TryUnregisterAddIn([DisallowNull] FileInfo assembly)
-    {
-        ExceptionHelpers.ThrowIfArgumentNull(assembly);
-        return this.TryUnregisterAddIn(assemblyFilePath: assembly.FullName,
-                                       cacheFilePath: this._defaultCache);
+        using FileStream stream = File.OpenRead(filePath);
+        this.ReadUserTrustedListFrom(stream: stream);
     }
-    public Boolean TryUnregisterAddIn([DisallowNull] FileInfo assembly,
-                                      [DisallowNull] FileInfo cache)
+    public void ReadUserTrustedListFrom([DisallowNull] Stream stream)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(assembly);
-        ExceptionHelpers.ThrowIfArgumentNull(cache);
-        return this.TryUnregisterAddIn(assemblyFilePath: assembly.FullName,
-                                       cacheFilePath: cache.FullName);
-    }
-    public Boolean TryUnregisterAddIn([DisallowNull] FileInfo assembly,
-                                      [DisallowNull] String cacheFilePath)
-    {
-        ExceptionHelpers.ThrowIfArgumentNull(assembly);
-        return this.TryUnregisterAddIn(assemblyFilePath: assembly.FullName,
-                                       cacheFilePath: cacheFilePath);
-    }
-    public Boolean TryUnregisterAddIn(in AddInDefinition addIn) =>
-        this.TryUnregisterAddIn(addIn: addIn,
-                        cacheFilePath: this._defaultCache);
-    public Boolean TryUnregisterAddIn(in AddInDefinition addIn,
-                                      [DisallowNull] FileInfo cache)
-    {
-        ExceptionHelpers.ThrowIfArgumentNull(cache);
-        return this.TryUnregisterAddIn(addIn: addIn,
-                             cacheFilePath: cache.FullName);
-    }
-    public Boolean TryUnregisterAddIn(in AddInDefinition addIn,
-                                      [DisallowNull] String cacheFilePath)
-    {
-        ExceptionHelpers.ThrowIfNullOrEmpty(cacheFilePath);
-        if (!File.Exists(cacheFilePath))
+        ExceptionHelpers.ThrowIfArgumentNull(stream);
+
+        IByteDeserializer<Guid[]> serializer = CreateByteSerializer
+                                              .ForDeserialization()
+                                              .ConfigureForForeignType<Guid[]>(strategy: Singleton<__GuidSerializationStrategy>.Instance)
+                                              .UseDefaultStrategies()
+                                              .Construct();
+        serializer.TryDeserialize(stream: stream,
+                                  result: out Guid[]? trusted);
+        if (trusted is null)
         {
-            FileNotFoundException exception = new();
-            exception.Data
-                     .Add(key: "Fullpath",
-                          value: cacheFilePath);
-            throw exception;
+            trusted = Array.Empty<Guid>();
         }
 
-        if (!this._cache
-                 .ContainsKey(cacheFilePath) ||
-            !this._cache[cacheFilePath]
-                 .Contains(item: addIn))
+        foreach (Guid guid in trusted)
         {
-            return false;
+            this._userTrustedAddInList
+                .Add(guid);
         }
-
-        Int32 index = this._cache[cacheFilePath]
-                          .IndexOf(addIn);
-        if (this._instances
-                .ContainsKey(addIn) &&
-            this._instances[addIn] is not __InactiveAddIn)
-        {
-            this._instances[addIn]
-                .Shutdown();
-        }
-        this._cache[cacheFilePath]
-            .RemoveAt(index);
-        this._instances
-            .Remove(key: addIn);
-        return true;
-    }
-    public Boolean TryUnregisterAddIn([DisallowNull] String assemblyFilePath)
-    {
-        ExceptionHelpers.ThrowIfNullOrEmpty(assemblyFilePath);
-        return this.TryUnregisterAddIn(assemblyFilePath: assemblyFilePath,
-                                       cacheFilePath: this._defaultCache);
-    }
-    public Boolean TryUnregisterAddIn([DisallowNull] String assemblyFilePath,
-                                      [DisallowNull] FileInfo cache)
-    {
-        ExceptionHelpers.ThrowIfNullOrEmpty(assemblyFilePath);
-        ExceptionHelpers.ThrowIfArgumentNull(cache);
-        return this.TryUnregisterAddIn(assemblyFilePath: assemblyFilePath,
-                                       cacheFilePath: cache.FullName);
-    }
-    public Boolean TryUnregisterAddIn([DisallowNull] String assemblyFilePath,
-                                      [DisallowNull] String cacheFilePath)
-    {
-        ExceptionHelpers.ThrowIfArgumentNull(assemblyFilePath);
-        ExceptionHelpers.ThrowIfArgumentNull(cacheFilePath);
-        if (!File.Exists(cacheFilePath))
-        {
-            FileNotFoundException exception = new();
-            exception.Data
-                     .Add(key: "Fullpath",
-                          value: cacheFilePath);
-            throw exception;
-        }
-        if (!this._cache
-                 .ContainsKey(cacheFilePath))
-        {
-            return false;
-        }
-
-        Assembly? assembly = null;
-        foreach (Assembly item in AppDomain.CurrentDomain
-                                           .GetAssemblies())
-        {
-            if (item.IsDynamic)
-            {
-                continue;
-            }
-            if (String.IsNullOrWhiteSpace(item.Location) ||
-                !File.Exists(item.Location))
-            {
-                continue;
-            }
-
-            if (item.Location == assemblyFilePath)
-            {
-                assembly = item;
-                break;
-            }
-        }
-
-        if (assembly is null)
-        {
-            // Assembly not loaded
-            return false;
-        }
-
-        IEnumerable<AddInDefinition> enumerator = new __AddInEnumerator(assembly);
-        foreach (AddInDefinition item in enumerator)
-        {
-            Int32 index = this._cache[cacheFilePath]
-                              .IndexOf(item);
-            if (this._instances
-                    .ContainsKey(item) &&
-                this._instances[item] is not __InactiveAddIn)
-            {
-                this._instances[item]
-                    .Shutdown();
-            }
-            this._cache[cacheFilePath]
-                .RemoveAt(index);
-            this._instances
-                .Remove(key: item);
-        }
-        return true;
-    }
-    public Boolean TryUnregisterAddIn([DisallowNull] Type addInType)
-    {
-        ExceptionHelpers.ThrowIfArgumentNull(addInType);
-        return this.TryUnregisterAddIn(addInType: addInType,
-                                       cacheFilePath: this._defaultCache);
-    }
-    public Boolean TryUnregisterAddIn([DisallowNull] Type addInType,
-                                      [DisallowNull] FileInfo cache)
-    {
-        ExceptionHelpers.ThrowIfArgumentNull(addInType);
-        ExceptionHelpers.ThrowIfArgumentNull(cache);
-        return this.TryUnregisterAddIn(addInType: addInType,
-                                       cacheFilePath: cache.FullName);
-    }
-    public Boolean TryUnregisterAddIn([DisallowNull] Type addInType,
-                                      [DisallowNull] String cacheFilePath)
-    {
-        ExceptionHelpers.ThrowIfArgumentNull(addInType);
-        ExceptionHelpers.ThrowIfNullOrEmpty(cacheFilePath);
-        Boolean implements = false;
-        foreach (Type @interface in addInType.GetInterfaces())
-        {
-            if (!@interface.IsGenericType)
-            {
-                continue;
-            }
-
-            if (@interface.GetGenericTypeDefinition() == typeof(IAddIn<>))
-            {
-                implements = true;
-                break;
-            }
-            if (@interface.GetGenericTypeDefinition() == typeof(IAddIn<,>))
-            {
-                implements = true;
-                break;
-            }
-        }
-        if (!implements)
-        {
-            NotAllowed exception = new(message: ADDIN_TYPE_DOES_NOT_INHERIT_STORE_TYPEPARAM,
-                                       ("Expected Type", typeof(IAddIn<>).FullName + " or " + typeof(IAddIn<,>).FullName),
-                                       ("Received Type", addInType.FullName));
-            throw exception;
-        }
-        if (!AttributeResolver.HasAttribute<AddInAttribute>(addInType))
-        {
-            NotAllowed exception = new(message: ADDIN_TYPE_IS_NOT_MARKED,
-                                       ("Typename", addInType.FullName));
-            throw exception;
-        }
-
-        AddInAttribute attribute = AttributeResolver.FetchOnlyAllowedAttribute<AddInAttribute>(addInType);
-        AddInDefinition definition = new(attribute.UniqueIdentifier,
-                                         attribute.Name,
-                                         attribute.Version,
-                                         addInType);
-        return this.TryUnregisterAddIn(addIn: definition,
-                                       cacheFilePath: cacheFilePath);
     }
 
-    public Boolean TryUnregisterAddIns([DisallowNull] Byte[] rawAssembly) =>
-        this.TryUnregisterAddIns(rawAssembly: rawAssembly,
-                                 cacheFilePath: this._defaultCache);
-    public Boolean TryUnregisterAddIns([DisallowNull] Byte[] rawAssembly, 
-                                       [DisallowNull] FileInfo cache)
+    public void RemoveFromUserTrustedList(in Guid guid) => 
+        this._userTrustedAddInList
+            .Remove(guid);
+
+    public void WriteUserTrustedListTo([DisallowNull] FileInfo file)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(cache);
-        return this.TryUnregisterAddIns(rawAssembly: rawAssembly,
-                                        cacheFilePath: cache.FullName);
+        ExceptionHelpers.ThrowIfArgumentNull(file);
+
+        this.WriteUserTrustedListTo(filePath: file.FullName);
     }
-    public Boolean TryUnregisterAddIns([DisallowNull] Byte[] rawAssembly, 
-                                       [DisallowNull] String cacheFilePath)
+    public void WriteUserTrustedListTo([DisallowNull] String filePath)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(rawAssembly);
-        ExceptionHelpers.ThrowIfArgumentNull(cacheFilePath);
-        if (!File.Exists(cacheFilePath))
+        ExceptionHelpers.ThrowIfArgumentNull(filePath);
+
+        if (File.Exists(filePath))
         {
-            FileNotFoundException exception = new();
-            exception.Data
-                     .Add(key: "Fullpath",
-                          value: cacheFilePath);
-            throw exception;
-        }
-        if (!this._cache
-                 .ContainsKey(cacheFilePath))
-        {
-            return false;
+            File.Delete(filePath);
         }
 
-        Assembly? assembly = null;
-        Assembly? temp = Assembly.Load(rawAssembly: rawAssembly);
-        foreach (Assembly item in AppDomain.CurrentDomain
-                                           .GetAssemblies())
-        {
-            if (item.IsDynamic)
-            {
-                continue;
-            }
-
-            if (item.FullName == temp.FullName)
-            {
-                assembly = item;
-                break;
-            }
-        }
-
-        if (assembly is null)
-        {
-            // Assembly not loaded
-            return false;
-        }
-
-        IEnumerable<AddInDefinition> enumerator = new __AddInEnumerator(assembly);
-        foreach (AddInDefinition item in enumerator)
-        {
-            Int32 index = this._cache[cacheFilePath]
-                              .IndexOf(item);
-            if (this._instances
-                    .ContainsKey(item) &&
-                this._instances[item] is not __InactiveAddIn)
-            {
-                this._instances[item]
-                    .Shutdown();
-            }
-            this._cache[cacheFilePath]
-                .RemoveAt(index);
-            this._instances
-                .Remove(key: item);
-        }
-        return true;
+        using FileStream stream = File.Create(filePath);
+        this.WriteUserTrustedListTo(stream: stream);
     }
-
-    public Boolean TryUnregisterAddIns([DisallowNull] Stream assemblyStream) =>
-        this.TryUnregisterAddIns(assemblyStream: assemblyStream,
-                                 cacheFilePath: this._defaultCache);
-    public Boolean TryUnregisterAddIns([DisallowNull] Stream assemblyStream, 
-                                       [DisallowNull] FileInfo cache)
+    public void WriteUserTrustedListTo([DisallowNull] Stream stream)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(cache);
-        return this.TryUnregisterAddIns(assemblyStream: assemblyStream,
-                                        cacheFilePath: cache.FullName);
-    }
-    public Boolean TryUnregisterAddIns([DisallowNull] Stream assemblyStream, 
-                                       [DisallowNull] String cacheFilePath)
-    {
-        ExceptionHelpers.ThrowIfArgumentNull(assemblyStream);
-        ExceptionHelpers.ThrowIfArgumentNull(cacheFilePath);
+        ExceptionHelpers.ThrowIfArgumentNull(stream);
 
-        Int32 count = (Int32)(assemblyStream.Length - assemblyStream.Position);
-        Byte[] assembly = new Byte[count];
-        assemblyStream.Read(buffer: assembly,
-                            offset: 0,
-                            count: count);
-        return this.TryUnregisterAddIns(rawAssembly: assembly,
-                                        cacheFilePath: cacheFilePath);
-    }
-}
-
-// IAddInWriteCache
-partial class __AddInStore : IAddInWriteCache
-{
-    public Boolean WriteCacheToDisk() =>
-        this.WriteCacheToDisk(cacheFilePath: this._defaultCache);
-    public Boolean WriteCacheToDisk([DisallowNull] FileInfo cacheFile)
-    {
-        ExceptionHelpers.ThrowIfArgumentNull(cacheFile);
-        return this.WriteCacheToDisk(cacheFilePath: cacheFile.FullName);
-    }
-    public Boolean WriteCacheToDisk([DisallowNull] String cacheFilePath)
-    {
-        ExceptionHelpers.ThrowIfNullOrEmpty(cacheFilePath);
-
-        if (!this._cache
-                 .ContainsKey(cacheFilePath))
-        {
-            return false;
-        }
-
-        using FileStream stream = File.Create(path: cacheFilePath);
-        return this.WriteCacheToStream(key: cacheFilePath,
-                                       stream: stream);
+        IByteSerializer<Guid[]> serializer = CreateByteSerializer
+                                            .ForSerialization()
+                                            .ConfigureForForeignType<Guid[]>(Singleton<__GuidSerializationStrategy>.Instance)
+                                            .UseDefaultStrategies()
+                                            .Construct();
+        Guid[] trusted = this._userTrustedAddInList
+                             .ToArray();
+        serializer.Serialize(stream: stream,
+                             graph: trusted);
     }
 }
 
@@ -1492,30 +753,58 @@ partial class __AddInStore : IAddInWriteCache
 partial class __AddInStore : IEnumerable
 {
     IEnumerator IEnumerable.GetEnumerator() =>
-        ((IEnumerable<AddInDefinition>)this).GetEnumerator();
+        ((IEnumerable<KeyValuePair<IAddInDefinition, IAddIn>>)this).GetEnumerator();
 }
 
 // IEnumerable<T>
-partial class __AddInStore : IEnumerable<AddInDefinition>
+partial class __AddInStore : IEnumerable<KeyValuePair<IAddInDefinition, IAddIn>>
 {
-    IEnumerator<AddInDefinition> IEnumerable<AddInDefinition>.GetEnumerator()
-    {
-        foreach (IList<AddInDefinition> definitions in this._cache.Values)
-        {
-            for (Int32 i = 0; i < definitions.Count; i++)
-            {
-                yield return definitions[i];
-            }
-        }
-        yield break;
-    }
+    IEnumerator<KeyValuePair<IAddInDefinition, IAddIn>> IEnumerable<KeyValuePair<IAddInDefinition, IAddIn>>.GetEnumerator() =>
+        this._instances
+            .GetEnumerator();
 }
 
 // IReadOnlyCollection<T>
-partial class __AddInStore : IReadOnlyCollection<AddInDefinition>
+partial class __AddInStore : IReadOnlyCollection<KeyValuePair<IAddInDefinition, IAddIn>>
 {
-    public Int32 Count =>
-        this._cache
-            .SelectMany(c => c.Value)
-            .Count();
+    public Int32 Count => 
+        this._instances
+            .Count;
+}
+
+// IReadOnlyDictionary<T, U>
+partial class __AddInStore : IReadOnlyDictionary<IAddInDefinition, IAddIn>
+{
+    public Boolean ContainsKey(IAddInDefinition key)
+    {
+        ExceptionHelpers.ThrowIfArgumentNull(key);
+        return this._instances
+                   .ContainsKey(key);
+    }
+
+    public Boolean TryGetValue(IAddInDefinition key, 
+                               [MaybeNullWhen(false)] out IAddIn value)
+    {
+        ExceptionHelpers.ThrowIfArgumentNull(key);
+        return this._instances
+                   .TryGetValue(key: key,
+                                value: out value);
+    }
+
+    public IAddIn this[IAddInDefinition key]
+    {
+        get
+        {
+            ExceptionHelpers.ThrowIfArgumentNull(key);
+            return this._instances[key];
+        }
+    }
+
+    public IEnumerable<IAddInDefinition> Keys =>
+        this._instances
+            .Keys;
+
+    public IEnumerable<IAddIn> Values =>
+        this._instances
+            .Values;
 }

@@ -15,8 +15,8 @@ public partial class ExternalIndirectAddInTest : IMyAddIn<ExternalIndirectAddInT
     public void MyFunctionality(TestContext context)
     {
         context.WriteLine("My functionality happened!");
-        Narumikazuchi.Serialization.Json.JsonObject x = new();
-        context.WriteLine(x.ToString());
+        Narumikazuchi.Networking.MacAddress mac = default;
+        context.WriteLine(mac.ToString());
     }
 
     public String Name { get; } = "FooBar";

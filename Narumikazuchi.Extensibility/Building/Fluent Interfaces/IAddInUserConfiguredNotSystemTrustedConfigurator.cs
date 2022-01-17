@@ -16,7 +16,7 @@ public interface IAddInUserConfiguredNotSystemTrustedConfigurator
     /// do both or anything else that you need to happend after such an event.
     /// </remarks>
     /// <param name="notification">The delegate to call when the described event happens.</param>
-    public IAddInTrustBothListConfigurator NotifyUserWhenNotSystemTrusted([DisallowNull] Action<AddInDefinition> notification);
+    public IAddInTrustBothListConfigurator NotifyUserWhenNotSystemTrusted([DisallowNull] Action<IAddInDefinition> notification);
 
     /// <summary>
     /// When the application tries to register an AddIn that is not in the supplied "System-Trusted"-list, 
