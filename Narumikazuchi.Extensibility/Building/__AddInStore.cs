@@ -145,17 +145,10 @@ partial class __AddInStore : IAddInActivator
         return result;
     }
 
-    public Boolean IsAddInActive(IAddInDefinition addIn)
-    {
-        if (!this._instances
-                 .ContainsKey(addIn))
-        {
-            return false;
-        }
-
-        IAddIn obj = this._instances[addIn];
-        return obj is not __InactiveAddIn;
-    }
+    public Boolean IsAddInActive(IAddInDefinition addIn) =>
+        this._instances
+            .ContainsKey(addIn) &&
+        this._instances[addIn] is not __InactiveAddIn;
 
     public Boolean TryActivate(IAddInDefinition definition,
                                [NotNullWhen(true)] out IAddIn? addIn)
@@ -658,10 +651,6 @@ partial class __AddInStore : IAddInDiscoverer
                 }
             }
 
-            this.AddInDiscovered?
-                .Invoke(sender: this,
-                        eventArgs: new(addIn));
-
             if (!this._instances
                      .ContainsKey(addIn))
             {
@@ -671,6 +660,10 @@ partial class __AddInStore : IAddInDiscoverer
             }
 
             result.Add(addIn);
+
+            this.AddInDiscovered?
+                .Invoke(sender: this,
+                        eventArgs: new(addIn));
         }
         return result;
     }
