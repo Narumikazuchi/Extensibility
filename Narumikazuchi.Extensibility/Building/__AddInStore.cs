@@ -8,7 +8,7 @@ partial class __AddInStore
 {
     internal __AddInStore(__ConfigurationInfo configuration)
     {
-        this._instances = new Dictionary<IAddInDefinition, IAddIn>();
+        this._instances = new Dictionary<IAddInDefinition, IAddIn>(comparer: Singleton<__AddInEqualityComparer>.Instance);
         this._trustLevel = configuration.TrustLevel;
         this._shouldFailWhenNotSystemTrusted = configuration.ShouldFailWhenNotSystemTrusted;
         this._shouldFailWhenNotUserTrusted = configuration.ShouldFailWhenNotUserTrusted;
