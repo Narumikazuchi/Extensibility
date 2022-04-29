@@ -14,14 +14,14 @@ public static class CreateAddInStore
     /// but it is highly discouraged to allow an end user such freedom.
     /// </remarks>
     public static IAddInNotSystemTrustedConfigurator TrustProvidedAddInsOnly() =>
-        new __ConfigurationInfo(TrustLevel.TRUSTED_ONLY);
+        new __ConfigurationInfo(__TrustLevel.TRUSTED_ONLY);
 
     /// <summary>
     /// The store will only trust user-trusted AddIns, which are a dynamic set of AddIns that are either dynamically loaded
     /// or manually approved by an end user.
     /// </summary>
     public static IAddInNotUserTrustedConfigurator TrustUserApprovedAddInsOnly() =>
-        new __ConfigurationInfo(TrustLevel.USER_CONFIRMED_ONLY);
+        new __ConfigurationInfo(__TrustLevel.USER_CONFIRMED_ONLY);
 
     /// <summary>
     /// The store will trust user-trusted AddIns as well as system-trusted AddIns.<para/>
@@ -30,7 +30,7 @@ public static class CreateAddInStore
     /// or manually approved by an end user.
     /// </summary>
     public static IAddInNotBothTrustedConfigurator TrustBothProvidedAndUserApprovedAddIns() =>
-        new __ConfigurationInfo(TrustLevel.TRUSTED_AND_USER_CONFIRMED);
+        new __ConfigurationInfo(__TrustLevel.TRUSTED_AND_USER_CONFIRMED);
 
     /// <summary>
     /// The store will trust any AddIn, regardless of it's origin.
@@ -39,5 +39,5 @@ public static class CreateAddInStore
     /// This option is great if you are building an application where you are certain that only a controlled set of AddIns will be loaded.
     /// </remarks>
     public static IAddInTrustFinalizer TrustAllAddIns() =>
-        new __ConfigurationInfo(TrustLevel.ALL);
+        new __ConfigurationInfo(__TrustLevel.ALL);
 }

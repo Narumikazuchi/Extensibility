@@ -5,9 +5,9 @@ internal struct __InactiveAddIn : IAddIn
     public void Shutdown()
     {
         this.ShutdownInitiated?.Invoke(this, EventArgs.Empty);
-        this._isShuttingDown = true;
+        m_IsShuttingDown = true;
         this.SilentShutdown();
-        this._isShuttingDown = false;
+        m_IsShuttingDown = false;
         this.ShutdownFinished?.Invoke(this, EventArgs.Empty);
     }
 
@@ -18,7 +18,7 @@ internal struct __InactiveAddIn : IAddIn
     public event EventHandler<IAddIn>? ShutdownFinished;
 
     public Boolean IsShuttingDown => 
-        this._isShuttingDown;
+        m_IsShuttingDown;
 
-    private Boolean _isShuttingDown;
+    private Boolean m_IsShuttingDown;
 }

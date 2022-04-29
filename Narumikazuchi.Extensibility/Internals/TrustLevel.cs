@@ -1,6 +1,6 @@
 ﻿namespace Narumikazuchi.Extensibility;
 
-internal enum TrustLevel
+internal enum __TrustLevel
 {
     NONE = 0x0,
     TRUSTED_ONLY = 0x1,

@@ -1,14 +1,8 @@
 ﻿namespace Narumikazuchi.Extensibility;
 
+[Singleton]
 internal sealed partial class __AddInEqualityComparer
 { }
-
-// Non-Public
-partial class __AddInEqualityComparer : Singleton
-{
-    private __AddInEqualityComparer()
-    { }
-}
 
 // IEqualityComparer<T>
 partial class __AddInEqualityComparer : IEqualityComparer<IAddInDefinition>

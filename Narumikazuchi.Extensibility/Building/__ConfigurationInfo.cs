@@ -2,25 +2,25 @@
 
 internal sealed partial class __ConfigurationInfo
 {
-    public __ConfigurationInfo(in TrustLevel trustLevel)
+    public __ConfigurationInfo(in __TrustLevel trustLevel)
     {
-        this._trustLevel = trustLevel;
+        m_TrustLevel = trustLevel;
     }
 
-    public TrustLevel TrustLevel => 
-        this._trustLevel;
+    public __TrustLevel TrustLevel => 
+        m_TrustLevel;
     public IEnumerable<Guid> TrustedAddIns => 
-        this._trustedAddIns;
+        m_TrustedAddIns;
     public IEnumerable<Guid> UserTrustedAddIns => 
-        this._userTrustedAddIns;
+        m_UserTrustedAddIns;
     public Boolean ShouldFailWhenNotSystemTrusted => 
-        this._shouldFailWhenNotSystemTrusted;
+        m_ShouldFailWhenNotSystemTrusted;
     public Boolean ShouldFailWhenNotUserTrusted =>
-        this._shouldFailWhenNotUserTrusted;
+        m_ShouldFailWhenNotUserTrusted;
     public Action<IAddInDefinition>? UserNotificationDelegate =>
-        this._userNotificationDelegate;
+        m_UserNotificationDelegate;
     public Func<IAddInDefinition, Boolean>? UserPromptDelegate =>
-        this._userPromptDelegate;
+        m_UserPromptDelegate;
 }
 
 // Non-Public
@@ -29,13 +29,13 @@ partial class __ConfigurationInfo :
     IAddInTrustBothListConfiguratorOrFinalizer,
     IAddInUserTrustOnlyListConfiguratorOrFinalizer
 {
-    private readonly List<Guid> _trustedAddIns = new();
-    private readonly List<Guid> _userTrustedAddIns = new();
-    private TrustLevel _trustLevel = TrustLevel.NONE;
-    private Boolean _shouldFailWhenNotSystemTrusted;
-    private Boolean _shouldFailWhenNotUserTrusted;
-    private Action<IAddInDefinition>? _userNotificationDelegate;
-    private Func<IAddInDefinition, Boolean>? _userPromptDelegate;
+    private readonly List<Guid> m_TrustedAddIns = new();
+    private readonly List<Guid> m_UserTrustedAddIns = new();
+    private readonly __TrustLevel m_TrustLevel = __TrustLevel.NONE;
+    private Boolean m_ShouldFailWhenNotSystemTrusted;
+    private Boolean m_ShouldFailWhenNotUserTrusted;
+    private Action<IAddInDefinition>? m_UserNotificationDelegate;
+    private Func<IAddInDefinition, Boolean>? m_UserPromptDelegate;
 }
 
 // IAddInNotBothTrustedConfigurator
@@ -43,47 +43,47 @@ partial class __ConfigurationInfo : IAddInNotBothTrustedConfigurator
 {
     IAddInSystemConfiguredNotUserTrustedConfigurator IAddInNotBothTrustedConfigurator.FailWhenNotSystemTrusted()
     {
-        this._shouldFailWhenNotSystemTrusted = true;
-        this._userNotificationDelegate = null;
+        m_ShouldFailWhenNotSystemTrusted = true;
+        m_UserNotificationDelegate = null;
         return this;
     }
 
     IAddInUserConfiguredNotSystemTrustedConfigurator IAddInNotBothTrustedConfigurator.FailWhenNotUserTrusted()
     {
-        this._shouldFailWhenNotUserTrusted = true;
-        this._userPromptDelegate = null;
+        m_ShouldFailWhenNotUserTrusted = true;
+        m_UserPromptDelegate = null;
         return this;
     }
 
     IAddInSystemConfiguredNotUserTrustedConfigurator IAddInNotBothTrustedConfigurator.IgnoreWhenNotSystemTrusted()
     {
-        this._shouldFailWhenNotSystemTrusted = false;
-        this._userNotificationDelegate = null;
+        m_ShouldFailWhenNotSystemTrusted = false;
+        m_UserNotificationDelegate = null;
         return this;
     }
 
     IAddInUserConfiguredNotSystemTrustedConfigurator IAddInNotBothTrustedConfigurator.IgnoreWhenNotUserTrusted()
     {
-        this._shouldFailWhenNotUserTrusted = false;
-        this._userPromptDelegate = null;
+        m_ShouldFailWhenNotUserTrusted = false;
+        m_UserPromptDelegate = null;
         return this;
     }
 
     IAddInSystemConfiguredNotUserTrustedConfigurator IAddInNotBothTrustedConfigurator.NotifyUserWhenNotSystemTrusted(Action<IAddInDefinition> notification)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(notification);
+        ArgumentNullException.ThrowIfNull(notification);
 
-        this._shouldFailWhenNotSystemTrusted = false;
-        this._userNotificationDelegate = notification;
+        m_ShouldFailWhenNotSystemTrusted = false;
+        m_UserNotificationDelegate = notification;
         return this;
     }
 
     IAddInUserConfiguredNotSystemTrustedConfigurator IAddInNotBothTrustedConfigurator.PromptUserWhenNotUserTrusted(Func<IAddInDefinition, Boolean> userPrompt)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(userPrompt);
+        ArgumentNullException.ThrowIfNull(userPrompt);
 
-        this._shouldFailWhenNotUserTrusted = false;
-        this._userPromptDelegate = userPrompt;
+        m_ShouldFailWhenNotUserTrusted = false;
+        m_UserPromptDelegate = userPrompt;
         return this;
     }
 }
@@ -93,24 +93,24 @@ partial class __ConfigurationInfo : IAddInNotSystemTrustedConfigurator
 {
     IAddInSystemTrustOnlyListConfigurator IAddInNotSystemTrustedConfigurator.FailWhenNotSystemTrusted()
     {
-        this._shouldFailWhenNotSystemTrusted = true;
-        this._userNotificationDelegate = null;
+        m_ShouldFailWhenNotSystemTrusted = true;
+        m_UserNotificationDelegate = null;
         return this;
     }
 
     IAddInSystemTrustOnlyListConfigurator IAddInNotSystemTrustedConfigurator.IgnoreWhenNotSystemTrusted()
     {
-        this._shouldFailWhenNotSystemTrusted = false;
-        this._userNotificationDelegate = null;
+        m_ShouldFailWhenNotSystemTrusted = false;
+        m_UserNotificationDelegate = null;
         return this;
     }
 
     IAddInSystemTrustOnlyListConfigurator IAddInNotSystemTrustedConfigurator.NotifyUserWhenNotSystemTrusted(Action<IAddInDefinition> notification)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(notification);
+        ArgumentNullException.ThrowIfNull(notification);
 
-        this._shouldFailWhenNotSystemTrusted = false;
-        this._userNotificationDelegate = notification;
+        m_ShouldFailWhenNotSystemTrusted = false;
+        m_UserNotificationDelegate = notification;
         return this;
     }
 }
@@ -120,24 +120,24 @@ partial class __ConfigurationInfo : IAddInNotUserTrustedConfigurator
 {
     IAddInUserTrustOnlyListConfigurator IAddInNotUserTrustedConfigurator.FailWhenNotUserTrusted()
     {
-        this._shouldFailWhenNotUserTrusted = true;
-        this._userPromptDelegate = null;
+        m_ShouldFailWhenNotUserTrusted = true;
+        m_UserPromptDelegate = null;
         return this;
     }
 
     IAddInUserTrustOnlyListConfigurator IAddInNotUserTrustedConfigurator.IgnoreWhenNotUserTrusted()
     {
-        this._shouldFailWhenNotUserTrusted = false;
-        this._userPromptDelegate = null;
+        m_ShouldFailWhenNotUserTrusted = false;
+        m_UserPromptDelegate = null;
         return this;
     }
 
     IAddInUserTrustOnlyListConfigurator IAddInNotUserTrustedConfigurator.PromptUserWhenNotUserTrusted(Func<IAddInDefinition, Boolean> userPrompt)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(userPrompt);
+        ArgumentNullException.ThrowIfNull(userPrompt);
 
-        this._shouldFailWhenNotUserTrusted = false;
-        this._userPromptDelegate = userPrompt;
+        m_ShouldFailWhenNotUserTrusted = false;
+        m_UserPromptDelegate = userPrompt;
         return this;
     }
 }
@@ -147,24 +147,24 @@ partial class __ConfigurationInfo : IAddInSystemConfiguredNotUserTrustedConfigur
 {
     IAddInTrustBothListConfigurator IAddInSystemConfiguredNotUserTrustedConfigurator.FailWhenNotUserTrusted()
     {
-        this._shouldFailWhenNotUserTrusted = true;
-        this._userPromptDelegate = null;
+        m_ShouldFailWhenNotUserTrusted = true;
+        m_UserPromptDelegate = null;
         return this;
     }
 
     IAddInTrustBothListConfigurator IAddInSystemConfiguredNotUserTrustedConfigurator.IgnoreWhenNotUserTrusted()
     {
-        this._shouldFailWhenNotUserTrusted = false;
-        this._userPromptDelegate = null;
+        m_ShouldFailWhenNotUserTrusted = false;
+        m_UserPromptDelegate = null;
         return this;
     }
 
     IAddInTrustBothListConfigurator IAddInSystemConfiguredNotUserTrustedConfigurator.PromptUserWhenNotUserTrusted(Func<IAddInDefinition, Boolean> userPrompt)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(userPrompt);
+        ArgumentNullException.ThrowIfNull(userPrompt);
 
-        this._shouldFailWhenNotUserTrusted = false;
-        this._userPromptDelegate = userPrompt;
+        m_ShouldFailWhenNotUserTrusted = false;
+        m_UserPromptDelegate = userPrompt;
         return this;
     }
 }
@@ -174,10 +174,9 @@ partial class __ConfigurationInfo : IAddInSystemTrustOnlyListConfigurator
 {
     IAddInSystemTrustOnlyListConfiguratorOrFinalizer IAddInSystemTrustOnlyListConfigurator.ProvidingSystemTrustedAddIns(IEnumerable<Guid> systemTrusted)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(systemTrusted);
+        ArgumentNullException.ThrowIfNull(systemTrusted);
 
-        this._trustedAddIns
-            .AddRange(systemTrusted);
+        m_TrustedAddIns.AddRange(systemTrusted);
         return this;
     }
 }
@@ -187,19 +186,17 @@ partial class __ConfigurationInfo : IAddInTrustBothListConfigurator
 {
     IAddInTrustBothListConfiguratorOrFinalizer IAddInTrustBothListConfigurator.ProvidingSystemTrustedAddIns(IEnumerable<Guid> systemTrusted)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(systemTrusted);
+        ArgumentNullException.ThrowIfNull(systemTrusted);
 
-        this._trustedAddIns
-            .AddRange(systemTrusted);
+        m_TrustedAddIns.AddRange(systemTrusted);
         return this;
     }
 
     IAddInTrustBothListConfiguratorOrFinalizer IAddInTrustBothListConfigurator.ProvidingUserTrustedAddIns(IEnumerable<Guid> userTrusted)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(userTrusted);
+        ArgumentNullException.ThrowIfNull(userTrusted);
 
-        this._userTrustedAddIns
-            .AddRange(userTrusted);
+        m_UserTrustedAddIns.AddRange(userTrusted);
         return this;
     }
 }
@@ -216,24 +213,24 @@ partial class __ConfigurationInfo : IAddInUserConfiguredNotSystemTrustedConfigur
 {
     IAddInTrustBothListConfigurator IAddInUserConfiguredNotSystemTrustedConfigurator.FailWhenNotSystemTrusted()
     {
-        this._shouldFailWhenNotSystemTrusted = true;
-        this._userNotificationDelegate = null;
+        m_ShouldFailWhenNotSystemTrusted = true;
+        m_UserNotificationDelegate = null;
         return this;
     }
 
     IAddInTrustBothListConfigurator IAddInUserConfiguredNotSystemTrustedConfigurator.IgnoreWhenNotSystemTrusted()
     {
-        this._shouldFailWhenNotSystemTrusted = false;
-        this._userNotificationDelegate = null;
+        m_ShouldFailWhenNotSystemTrusted = false;
+        m_UserNotificationDelegate = null;
         return this;
     }
 
     IAddInTrustBothListConfigurator IAddInUserConfiguredNotSystemTrustedConfigurator.NotifyUserWhenNotSystemTrusted(Action<IAddInDefinition> notification)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(notification);
+        ArgumentNullException.ThrowIfNull(notification);
 
-        this._shouldFailWhenNotSystemTrusted = false;
-        this._userNotificationDelegate = notification;
+        m_ShouldFailWhenNotSystemTrusted = false;
+        m_UserNotificationDelegate = notification;
         return this;
     }
 }
@@ -243,10 +240,9 @@ partial class __ConfigurationInfo : IAddInUserTrustOnlyListConfigurator
 {
     IAddInUserTrustOnlyListConfiguratorOrFinalizer IAddInUserTrustOnlyListConfigurator.ProvidingUserTrustedAddIns(IEnumerable<Guid> userTrusted)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(userTrusted);
+        ArgumentNullException.ThrowIfNull(userTrusted);
 
-        this._userTrustedAddIns
-            .AddRange(userTrusted);
+        m_UserTrustedAddIns.AddRange(userTrusted);
         return this;
     }
 }

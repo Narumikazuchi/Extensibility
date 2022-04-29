@@ -11,7 +11,7 @@ public sealed class AddInDefinitionEventArgs : EventArgs
     /// <exception cref="ArgumentNullException"/>
     public AddInDefinitionEventArgs([DisallowNull] IAddInDefinition addIn)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(addIn);
+        ArgumentNullException.ThrowIfNull(addIn);
 
         this.AddIn = addIn;
     }

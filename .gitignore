@@ -9,7 +9,6 @@
 *.user
 *.userosscache
 *.sln.docstates
-*.exe
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
@@ -45,6 +44,8 @@ Generated\ Files/
 # MSTest test Results
 [Tt]est[Rr]esult*/
 [Bb]uild[Ll]og.*
+[Uu]nit[Tt]est/
+[Tt]est*/
 
 # NUnit
 *.VisualState.xml

@@ -15,9 +15,9 @@ public sealed partial class AddInAttribute :  Attribute
                           [DisallowNull] String guid, 
                           [DisallowNull] String version)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(name);
-        ExceptionHelpers.ThrowIfArgumentNull(guid);
-        ExceptionHelpers.ThrowIfArgumentNull(version);
+        ArgumentNullException.ThrowIfNull(name);
+        ArgumentNullException.ThrowIfNull(guid);
+        ArgumentNullException.ThrowIfNull(version);
         if (!Guid.TryParse(input: guid, 
                             result: out Guid id))
         {

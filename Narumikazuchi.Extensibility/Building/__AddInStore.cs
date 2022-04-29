@@ -8,21 +8,19 @@ partial class __AddInStore
 {
     internal __AddInStore(__ConfigurationInfo configuration)
     {
-        this._instances = new Dictionary<IAddInDefinition, IAddIn>(comparer: Singleton<__AddInEqualityComparer>.Instance);
-        this._trustLevel = configuration.TrustLevel;
-        this._shouldFailWhenNotSystemTrusted = configuration.ShouldFailWhenNotSystemTrusted;
-        this._shouldFailWhenNotUserTrusted = configuration.ShouldFailWhenNotUserTrusted;
-        this._userNotificationDelegate = configuration.UserNotificationDelegate;
-        this._userPromptDelegate = configuration.UserPromptDelegate;
+        m_Instances = new Dictionary<IAddInDefinition, IAddIn>(comparer: __AddInEqualityComparer.Instance);
+        m_TrustLevel = configuration.TrustLevel;
+        m_ShouldFailWhenNotSystemTrusted = configuration.ShouldFailWhenNotSystemTrusted;
+        m_ShouldFailWhenNotUserTrusted = configuration.ShouldFailWhenNotUserTrusted;
+        m_UserNotificationDelegate = configuration.UserNotificationDelegate;
+        m_UserPromptDelegate = configuration.UserPromptDelegate;
         foreach (Guid item in configuration.TrustedAddIns)
         {
-            this._trustedAddInList
-                .Add(item);
+            m_TrustedAddInList.Add(item);
         }
         foreach (Guid item in configuration.UserTrustedAddIns)
         {
-            this._userTrustedAddInList
-                .Add(item);
+            m_UserTrustedAddInList.Add(item);
         }
 
         AppDomain.CurrentDomain
@@ -32,8 +30,7 @@ partial class __AddInStore
     private void OnShutdown(Object? sender, 
                             EventArgs e)
     {
-        foreach (IAddIn item in this._instances
-                                    .Values)
+        foreach (IAddIn item in m_Instances.Values)
         {
             if (item is not __InactiveAddIn &&
                 !item.IsShuttingDown)
@@ -44,17 +41,16 @@ partial class __AddInStore
     }
 
     private void ShutdownPassThrough(IAddIn sender,
-                                     EventArgs? e)
-    {
-        this.AddInShuttingDown?.Invoke(sender: sender, 
-                                       eventArgs: e);
-    }
+                                     EventArgs? eventArgs) => 
+        this.AddInShuttingDown?
+            .Invoke(sender: sender,
+                    eventArgs: eventArgs);
 
     private void OnAddInShutdown(IAddIn sender,
                                  EventArgs? e)
     {
         __AddInDefinition addIn = new(sender);
-        this._instances[addIn] = new __InactiveAddIn();
+        m_Instances[addIn] = new __InactiveAddIn();
         sender.ShutdownInitiated -= this.ShutdownPassThrough;
         sender.ShutdownFinished -= this.OnAddInShutdown;
         this.AddInShutdown?.Invoke(sender: this, 
@@ -78,23 +74,21 @@ partial class __AddInStore
         return null;
     }
 
-    private readonly IDictionary<IAddInDefinition, IAddIn> _instances;
-    private readonly Boolean _shouldFailWhenNotSystemTrusted;
-    private readonly Boolean _shouldFailWhenNotUserTrusted;
-    private readonly TrustLevel _trustLevel;
-    private readonly Action<IAddInDefinition>? _userNotificationDelegate;
-    private readonly Func<IAddInDefinition, Boolean>? _userPromptDelegate;
-    private readonly ISet<Guid> _trustedAddInList = new HashSet<Guid>();
-    private readonly ISet<Guid> _userTrustedAddInList = new HashSet<Guid>();
+    private readonly IDictionary<IAddInDefinition, IAddIn> m_Instances;
+    private readonly Boolean m_ShouldFailWhenNotSystemTrusted;
+    private readonly Boolean m_ShouldFailWhenNotUserTrusted;
+    private readonly __TrustLevel m_TrustLevel;
+    private readonly Action<IAddInDefinition>? m_UserNotificationDelegate;
+    private readonly Func<IAddInDefinition, Boolean>? m_UserPromptDelegate;
+    private readonly ISet<Guid> m_TrustedAddInList = new HashSet<Guid>();
+    private readonly ISet<Guid> m_UserTrustedAddInList = new HashSet<Guid>();
 
-#pragma warning disable IDE1006
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private const String COULD_NOT_FIND_TYPE = "The type of the AddIn could not be found in any of the loaded assemblies.";
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private const String TYPES_WERE_INCOMPATIBLE = "The specified AddIn type is not assignable to the actual type of the AddIn to activate.";
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private const String FORCED_FAIL = "Critical failure while trying to discover untrusted addin.";
-#pragma warning restore
 }
 
 // IAddInActivator
@@ -102,60 +96,52 @@ partial class __AddInStore : IAddInActivator
 {
     public Boolean CanAddInBeActivated(IAddInDefinition addIn)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(addIn);
+        ArgumentNullException.ThrowIfNull(addIn);
         return this.CanAddInBeActivated(addInIdentifier: addIn.UniqueIdentifier);
     }
     public Boolean CanAddInBeActivated(in Guid addInIdentifier)
     {
-        if (this._trustLevel is TrustLevel.NONE)
+        if (m_TrustLevel is __TrustLevel.NONE)
         {
             return false;
         }
-        if (this._trustLevel is TrustLevel.ALL)
+        if (m_TrustLevel is __TrustLevel.ALL)
         {
             return true;
         }
 
         Boolean result = false;
-        if (this._trustLevel
-                .HasFlag(TrustLevel.TRUSTED_ONLY))
+        if (m_TrustLevel.HasFlag(__TrustLevel.TRUSTED_ONLY))
         {
-            result |= this._trustedAddInList
-                          .Contains(item: addInIdentifier);
+            result |= m_TrustedAddInList.Contains(item: addInIdentifier);
         }
         if (result)
         {
             return true;
         }
 
-        if (this._trustLevel
-                .HasFlag(TrustLevel.USER_CONFIRMED_ONLY))
+        if (m_TrustLevel.HasFlag(__TrustLevel.USER_CONFIRMED_ONLY))
         {
-            result |= this._userTrustedAddInList
-                          .Contains(item: addInIdentifier);
+            result |= m_UserTrustedAddInList.Contains(item: addInIdentifier);
         }
 
-        if (this._trustLevel is TrustLevel.NOT_TRUSTED)
+        if (m_TrustLevel is __TrustLevel.NOT_TRUSTED)
         {
-            result |= !this._trustedAddInList
-                           .Contains(item: addInIdentifier);
-            result |= !this._userTrustedAddInList
-                           .Contains(item: addInIdentifier);
+            result |= !m_TrustedAddInList.Contains(item: addInIdentifier);
+            result |= !m_UserTrustedAddInList.Contains(item: addInIdentifier);
         }
         return result;
     }
 
     public Boolean IsAddInActive(IAddInDefinition addIn) =>
-        this._instances
-            .ContainsKey(addIn) &&
-        this._instances[addIn] is not __InactiveAddIn;
+        m_Instances.ContainsKey(addIn) &&
+        m_Instances[addIn] is not __InactiveAddIn;
 
     public Boolean TryActivate(IAddInDefinition definition,
                                [NotNullWhen(true)] out IAddIn? addIn)
     {
         addIn = default;
-        if (!this._instances
-                 .ContainsKey(definition))
+        if (!m_Instances.ContainsKey(definition))
         {
             return false;
         }
@@ -190,7 +176,7 @@ partial class __AddInStore : IAddInActivator
             throw exception;
         }
 
-        if (this._instances[definition] is __InactiveAddIn)
+        if (m_Instances[definition] is __InactiveAddIn)
         {
             this.AddInActivating?.Invoke(sender: this,
                                          eventArgs: new(definition));
@@ -200,7 +186,7 @@ partial class __AddInStore : IAddInActivator
                                                     types: Type.EmptyTypes)!;
             addIn = (IAddIn)method.Invoke(obj: null,
                                           parameters: Array.Empty<Object>())!;
-            this._instances[definition] = addIn;
+            m_Instances[definition] = addIn;
             addIn.ShutdownInitiated += this.ShutdownPassThrough;
             addIn.ShutdownFinished += this.OnAddInShutdown;
             this.AddInActivated?.Invoke(sender: addIn,
@@ -214,8 +200,7 @@ partial class __AddInStore : IAddInActivator
         where TAddIn : IAddIn<TAddIn>
     {
         addIn = default;
-        if (!this._instances
-                 .ContainsKey(definition))
+        if (!m_Instances.ContainsKey(definition))
         {
             return false;
         }
@@ -247,12 +232,12 @@ partial class __AddInStore : IAddInActivator
             throw exception;
         }
 
-        if (this._instances[definition] is __InactiveAddIn)
+        if (m_Instances[definition] is __InactiveAddIn)
         {
             this.AddInActivating?.Invoke(sender: this,
                                          eventArgs: new(definition));
-            this._instances[definition] = TAddIn.Activate();
-            addIn = (TAddIn)this._instances[definition];
+            m_Instances[definition] = TAddIn.Activate();
+            addIn = (TAddIn)m_Instances[definition];
             addIn.ShutdownInitiated += this.ShutdownPassThrough;
             addIn.ShutdownFinished += this.OnAddInShutdown;
             this.AddInActivated?.Invoke(sender: addIn,
@@ -266,8 +251,7 @@ partial class __AddInStore : IAddInActivator
                                                       [NotNullWhen(true)] out IAddIn? addIn)
     {
         addIn = default;
-        if (!this._instances
-                 .ContainsKey(definition))
+        if (!m_Instances.ContainsKey(definition))
         {
             return false;
         }
@@ -301,7 +285,7 @@ partial class __AddInStore : IAddInActivator
             throw exception;
         }
 
-        if (this._instances[definition] is __InactiveAddIn)
+        if (m_Instances[definition] is __InactiveAddIn)
         {
             this.AddInActivating?.Invoke(sender: this,
                                          eventArgs: new(definition));
@@ -310,7 +294,7 @@ partial class __AddInStore : IAddInActivator
                                                     bindingAttr: BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)!;
             addIn = (IAddIn)method.Invoke(obj: null,
                                           parameters: new Object?[] { options })!;
-            this._instances[definition] = addIn;
+            m_Instances[definition] = addIn;
             addIn.ShutdownInitiated += this.ShutdownPassThrough;
             addIn.ShutdownFinished += this.OnAddInShutdown;
             this.AddInActivated?.Invoke(sender: addIn,
@@ -325,8 +309,7 @@ partial class __AddInStore : IAddInActivator
         where TAddIn : IAddIn<TAddIn, TConfigurationOptions>
     {
         addIn = default;
-        if (!this._instances
-                 .ContainsKey(definition))
+        if (!m_Instances.ContainsKey(definition))
         {
             return false;
         }
@@ -358,12 +341,12 @@ partial class __AddInStore : IAddInActivator
             throw exception;
         }
 
-        if (this._instances[definition] is __InactiveAddIn)
+        if (m_Instances[definition] is __InactiveAddIn)
         {
             this.AddInActivating?.Invoke(sender: this,
                                          eventArgs: new(definition));
-            this._instances[definition] = TAddIn.Activate(options: options!);
-            addIn = (TAddIn)this._instances[definition];
+            m_Instances[definition] = TAddIn.Activate(options: options!);
+            addIn = (TAddIn)m_Instances[definition];
             addIn.ShutdownInitiated += this.ShutdownPassThrough;
             addIn.ShutdownFinished += this.OnAddInShutdown;
             this.AddInActivated?.Invoke(sender: addIn,
@@ -385,7 +368,7 @@ partial class __AddInStore : IAddInDiscoverer
     public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssemblies([DisallowNull] IEnumerable<Assembly> assemblies,
                                                                              in Boolean searchPrivateTypes)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(assemblies);
+        ArgumentNullException.ThrowIfNull(assemblies);
 
         List<IAddInDefinition> result = new();
         foreach (Assembly assembly in assemblies)
@@ -403,7 +386,7 @@ partial class __AddInStore : IAddInDiscoverer
     public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssemblies([DisallowNull] IEnumerable<FileInfo> assemblyFiles,
                                                                              in Boolean searchPrivateTypes)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(assemblyFiles);
+        ArgumentNullException.ThrowIfNull(assemblyFiles);
 
         List<IAddInDefinition> result = new();
         foreach (FileInfo assemblyFile in assemblyFiles)
@@ -425,7 +408,7 @@ partial class __AddInStore : IAddInDiscoverer
     public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssemblies([DisallowNull] DirectoryInfo directory,
                                                                              in Boolean searchPrivateTypes)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(directory);
+        ArgumentNullException.ThrowIfNull(directory);
 
         List<IAddInDefinition> result = new();
         foreach (FileInfo assemblyFile in directory.EnumerateFiles(searchPattern: "*.dll"))
@@ -447,7 +430,7 @@ partial class __AddInStore : IAddInDiscoverer
     public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssemblies([DisallowNull] String directoryPath,
                                                                              in Boolean searchPrivateTypes)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(directoryPath);
+        ArgumentNullException.ThrowIfNull(directoryPath);
 
         List<IAddInDefinition> result = new();
         foreach (String assemblyFile in Directory.EnumerateFiles(path: directoryPath, 
@@ -471,7 +454,7 @@ partial class __AddInStore : IAddInDiscoverer
     public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssembly([DisallowNull] FileInfo assemblyFile,
                                                                            in Boolean searchPrivateTypes)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(assemblyFile);
+        ArgumentNullException.ThrowIfNull(assemblyFile);
 
         return this.DiscoverAddInsContainedInAssembly(assemblyPath: assemblyFile.FullName,
                                                       searchPrivateTypes: searchPrivateTypes);
@@ -484,7 +467,7 @@ partial class __AddInStore : IAddInDiscoverer
     public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssembly([DisallowNull] String assemblyPath,
                                                                            in Boolean searchPrivateTypes)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(assemblyPath);
+        ArgumentNullException.ThrowIfNull(assemblyPath);
 
         if (!File.Exists(assemblyPath))
         {
@@ -502,7 +485,7 @@ partial class __AddInStore : IAddInDiscoverer
     public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssembly([DisallowNull] Byte[] rawAssembly,
                                                                            in Boolean searchPrivateTypes)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(rawAssembly);
+        ArgumentNullException.ThrowIfNull(rawAssembly);
 
         Assembly assembly = Assembly.Load(rawAssembly: rawAssembly);
         return this.DiscoverAddInsContainedInAssembly(assembly: assembly,
@@ -516,7 +499,7 @@ partial class __AddInStore : IAddInDiscoverer
     public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssembly([DisallowNull] Stream assemblyStream,
                                                                            in Boolean searchPrivateTypes)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(assemblyStream);
+        ArgumentNullException.ThrowIfNull(assemblyStream);
 
         if (!assemblyStream.CanRead)
         {
@@ -535,9 +518,9 @@ partial class __AddInStore : IAddInDiscoverer
     public IEnumerable<IAddInDefinition> DiscoverAddInsContainedInAssembly([DisallowNull] Assembly assembly,
                                                                            in Boolean searchPrivateTypes)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(assembly);
+        ArgumentNullException.ThrowIfNull(assembly);
 
-        if (this._trustLevel is TrustLevel.NONE)
+        if (m_TrustLevel is __TrustLevel.NONE)
         {
             return Array.Empty<IAddInDefinition>();
         }
@@ -584,43 +567,36 @@ partial class __AddInStore : IAddInDiscoverer
                         eventArgs: new(addIn));
 
             Boolean trusted = false;
-            if (this._trustLevel is TrustLevel.ALL)
+            if (m_TrustLevel is __TrustLevel.ALL)
             {
                 trusted = true;
             }
 
             if (!trusted &&
-                this._trustLevel
-                    .HasFlag(TrustLevel.USER_CONFIRMED_ONLY) &&
-                this._userTrustedAddInList
-                    .Contains(item: addIn.UniqueIdentifier))
+                m_TrustLevel.HasFlag(__TrustLevel.USER_CONFIRMED_ONLY) &&
+                m_UserTrustedAddInList.Contains(item: addIn.UniqueIdentifier))
             {
                 trusted = true;
             }
 
             if (!trusted &&
-                this._trustLevel
-                    .HasFlag(TrustLevel.TRUSTED_ONLY) &&
-                this._trustedAddInList
-                    .Contains(item: addIn.UniqueIdentifier))
+                m_TrustLevel.HasFlag(__TrustLevel.TRUSTED_ONLY) &&
+                m_TrustedAddInList.Contains(item: addIn.UniqueIdentifier))
             {
                 trusted = true;
             }
 
             if (!trusted)
             {
-                if (this._trustLevel
-                        .HasFlag(TrustLevel.TRUSTED_ONLY))
+                if (m_TrustLevel.HasFlag(__TrustLevel.TRUSTED_ONLY))
                 {
-                    if (this._userPromptDelegate is not null &&
-                        this._userPromptDelegate
-                            .Invoke(addIn))
+                    if (m_UserPromptDelegate is not null &&
+                        m_UserPromptDelegate.Invoke(addIn))
                     {
-                        this._userTrustedAddInList
-                            .Add(item: addIn.UniqueIdentifier);
+                        m_UserTrustedAddInList.Add(item: addIn.UniqueIdentifier);
                         result.Add(addIn);
                     }
-                    if (this._shouldFailWhenNotUserTrusted)
+                    if (m_ShouldFailWhenNotUserTrusted)
                     {
                         InvalidOperationException exception = new(message: FORCED_FAIL);
                         exception.Data
@@ -631,15 +607,13 @@ partial class __AddInStore : IAddInDiscoverer
                     continue;
 
                 }
-                else if (this._trustLevel
-                             .HasFlag(TrustLevel.TRUSTED_ONLY))
+                else if (m_TrustLevel.HasFlag(__TrustLevel.TRUSTED_ONLY))
                 {
-                    if (this._userNotificationDelegate is not null)
+                    if (m_UserNotificationDelegate is not null)
                     {
-                        this._userNotificationDelegate
-                            .Invoke(addIn);
+                        m_UserNotificationDelegate.Invoke(addIn);
                     }
-                    if (this._shouldFailWhenNotSystemTrusted)
+                    if (m_ShouldFailWhenNotSystemTrusted)
                     {
                         InvalidOperationException exception = new(message: FORCED_FAIL);
                         exception.Data
@@ -651,12 +625,10 @@ partial class __AddInStore : IAddInDiscoverer
                 }
             }
 
-            if (!this._instances
-                     .ContainsKey(addIn))
+            if (!m_Instances.ContainsKey(addIn))
             {
-                this._instances
-                    .Add(key: addIn,
-                         value: new __InactiveAddIn());
+                m_Instances.Add(key: addIn,
+                                value: new __InactiveAddIn());
             }
 
             result.Add(addIn);
@@ -670,10 +642,9 @@ partial class __AddInStore : IAddInDiscoverer
 
     public Boolean IsAddInDiscovered([DisallowNull] IAddInDefinition addIn)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(addIn);
+        ArgumentNullException.ThrowIfNull(addIn);
 
-        return this._instances
-                   .ContainsKey(addIn);
+        return m_Instances.ContainsKey(addIn);
     }
 }
 
@@ -682,9 +653,9 @@ partial class __AddInStore : IAddInStore
 {
     public IEnumerable<IAddInDefinition> EnumerateActiveAddIns()
     {
-        foreach (IAddInDefinition addIn in this._instances.Keys)
+        foreach (IAddInDefinition addIn in m_Instances.Keys)
         {
-            if (this._instances[addIn] is not __InactiveAddIn)
+            if (m_Instances[addIn] is not __InactiveAddIn)
             {
                 yield return addIn;
             }
@@ -694,7 +665,7 @@ partial class __AddInStore : IAddInStore
 
     public IEnumerable<IAddInDefinition> EnumerateAllAddIns()
     {
-        foreach (IAddInDefinition addIn in this._instances.Keys)
+        foreach (IAddInDefinition addIn in m_Instances.Keys)
         {
             yield return addIn;
         }
@@ -703,9 +674,9 @@ partial class __AddInStore : IAddInStore
 
     public IEnumerable<IAddInDefinition> EnumerateInactiveAddIns()
     {
-        foreach (IAddInDefinition addIn in this._instances.Keys)
+        foreach (IAddInDefinition addIn in m_Instances.Keys)
         {
-            if (this._instances[addIn] is __InactiveAddIn)
+            if (m_Instances[addIn] is __InactiveAddIn)
             {
                 yield return addIn;
             }
@@ -725,31 +696,30 @@ partial class __AddInStore : IAddInStore
 partial class __AddInStore : IAddInTrustList
 {
     public void ClearUserTrustedList() =>
-        this._userTrustedAddInList
-            .Clear();
+        m_UserTrustedAddInList.Clear();
 
     public void ReadUserTrustedListFrom([DisallowNull] FileInfo file)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(file);
+        ArgumentNullException.ThrowIfNull(file);
 
         this.ReadUserTrustedListFrom(filePath: file.FullName);
     }
     public void ReadUserTrustedListFrom([DisallowNull] String filePath)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(filePath);
+        ArgumentNullException.ThrowIfNull(filePath);
 
         using FileStream stream = File.OpenRead(filePath);
         this.ReadUserTrustedListFrom(stream: stream);
     }
     public void ReadUserTrustedListFrom([DisallowNull] Stream stream)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(stream);
+        ArgumentNullException.ThrowIfNull(stream);
 
         IByteDeserializer<Guid[]> serializer = CreateByteSerializer
-                                              .ForDeserialization()
-                                              .ConfigureForForeignType<Guid[]>(strategy: Singleton<__GuidSerializationStrategy>.Instance)
+                                              .ConfigureForForeignType<Guid[]>()
+                                              .ForDeserialization(__GuidSerializationStrategy.Instance)
                                               .UseDefaultStrategies()
-                                              .Construct();
+                                              .Create();
         serializer.TryDeserialize(stream: stream,
                                   result: out Guid[]? trusted);
         if (trusted is null)
@@ -759,24 +729,22 @@ partial class __AddInStore : IAddInTrustList
 
         foreach (Guid guid in trusted)
         {
-            this._userTrustedAddInList
-                .Add(guid);
+            m_UserTrustedAddInList.Add(guid);
         }
     }
 
     public void RemoveFromUserTrustedList(in Guid guid) => 
-        this._userTrustedAddInList
-            .Remove(guid);
+        m_UserTrustedAddInList.Remove(guid);
 
     public void WriteUserTrustedListTo([DisallowNull] FileInfo file)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(file);
+        ArgumentNullException.ThrowIfNull(file);
 
         this.WriteUserTrustedListTo(filePath: file.FullName);
     }
     public void WriteUserTrustedListTo([DisallowNull] String filePath)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(filePath);
+        ArgumentNullException.ThrowIfNull(filePath);
 
         if (File.Exists(filePath))
         {
@@ -788,15 +756,14 @@ partial class __AddInStore : IAddInTrustList
     }
     public void WriteUserTrustedListTo([DisallowNull] Stream stream)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(stream);
+        ArgumentNullException.ThrowIfNull(stream);
 
         IByteSerializer<Guid[]> serializer = CreateByteSerializer
-                                            .ForSerialization()
-                                            .ConfigureForForeignType<Guid[]>(Singleton<__GuidSerializationStrategy>.Instance)
+                                            .ConfigureForForeignType<Guid[]>()
+                                            .ForSerialization(__GuidSerializationStrategy.Instance)
                                             .UseDefaultStrategies()
-                                            .Construct();
-        Guid[] trusted = this._userTrustedAddInList
-                             .ToArray();
+                                            .Create();
+        Guid[] trusted = m_UserTrustedAddInList.ToArray();
         serializer.Serialize(stream: stream,
                              graph: trusted);
     }
@@ -813,16 +780,14 @@ partial class __AddInStore : IEnumerable
 partial class __AddInStore : IEnumerable<KeyValuePair<IAddInDefinition, IAddIn>>
 {
     IEnumerator<KeyValuePair<IAddInDefinition, IAddIn>> IEnumerable<KeyValuePair<IAddInDefinition, IAddIn>>.GetEnumerator() =>
-        this._instances
-            .GetEnumerator();
+        m_Instances.GetEnumerator();
 }
 
 // IReadOnlyCollection<T>
 partial class __AddInStore : IReadOnlyCollection<KeyValuePair<IAddInDefinition, IAddIn>>
 {
     public Int32 Count => 
-        this._instances
-            .Count;
+        m_Instances.Count;
 }
 
 // IReadOnlyDictionary<T, U>
@@ -830,34 +795,32 @@ partial class __AddInStore : IReadOnlyDictionary<IAddInDefinition, IAddIn>
 {
     public Boolean ContainsKey(IAddInDefinition key)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(key);
-        return this._instances
-                   .ContainsKey(key);
+        ArgumentNullException.ThrowIfNull(key);
+        return m_Instances.ContainsKey(key);
     }
 
     public Boolean TryGetValue(IAddInDefinition key, 
                                [MaybeNullWhen(false)] out IAddIn value)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(key);
-        return this._instances
-                   .TryGetValue(key: key,
-                                value: out value);
+        ArgumentNullException.ThrowIfNull(key);
+        return m_Instances.TryGetValue(key: key,
+                                       value: out value);
     }
 
     public IAddIn this[IAddInDefinition key]
     {
         get
         {
-            ExceptionHelpers.ThrowIfArgumentNull(key);
-            return this._instances[key];
+            ArgumentNullException.ThrowIfNull(key);
+            return m_Instances[key];
         }
     }
 
     public IEnumerable<IAddInDefinition> Keys =>
-        this._instances
+        m_Instances
             .Keys;
 
     public IEnumerable<IAddIn> Values =>
-        this._instances
+        m_Instances
             .Values;
 }

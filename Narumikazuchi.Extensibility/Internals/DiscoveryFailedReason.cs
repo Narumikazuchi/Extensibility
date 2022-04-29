@@ -1,6 +1,6 @@
 ﻿namespace Narumikazuchi.Extensibility;
 
-internal enum DiscoveryFailedReason
+internal enum __DiscoveryFailedReason
 {
     NOT_FAILED = 0,
     NOT_SYSTEM_TRUSTED = 1,

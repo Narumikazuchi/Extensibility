@@ -8,43 +8,44 @@ internal readonly partial struct __AddInDefinition
                              in AlphanumericVersion version,
                              [DisallowNull] Type type)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(name);
-        ExceptionHelpers.ThrowIfArgumentNull(type);
+        ArgumentNullException.ThrowIfNull(name);
+        ArgumentNullException.ThrowIfNull(type);
 
         this.UniqueIdentifier = guid;
         this.Name = name;
         this.Version = version;
-        this._assemblyName = type.Assembly
-                                 .GetName()
-                                 .FullName;
-        this._typeName = type.FullName!;
+        m_AssemblyName = type.Assembly
+                             .GetName()
+                             .FullName;
+        m_TypeName = type.FullName!;
     }
     public __AddInDefinition([DisallowNull] IAddIn addIn)
     {
-        ExceptionHelpers.ThrowIfArgumentNull(addIn);
+        ArgumentNullException.ThrowIfNull(addIn);
 
         Type type = addIn.GetType();
         if (!AttributeResolver.HasAttribute<AddInAttribute>(info: type))
         {
             throw new NotSupportedException();
         }
+
         AddInAttribute attribute = AttributeResolver.FetchOnlyAllowedAttribute<AddInAttribute>(info: type);
 
         this.UniqueIdentifier = attribute.UniqueIdentifier;
         this.Name = attribute.Name;
         this.Version = attribute.Version;
-        this._assemblyName = type.Assembly
-                                 .GetName()
-                                 .FullName;
-        this._typeName = type.FullName!;
+        m_AssemblyName = type.Assembly
+                             .GetName()
+                             .FullName;
+        m_TypeName = type.FullName!;
     }
 }
 
 // Non-Public
 partial struct __AddInDefinition
 {
-    private readonly String _assemblyName;
-    private readonly String _typeName;
+    private readonly String m_AssemblyName;
+    private readonly String m_TypeName;
 }
 
 // IAddInDefinition
@@ -58,10 +59,10 @@ partial struct __AddInDefinition : IAddInDefinition
     public AlphanumericVersion Version { get; }
 
     String IAddInDefinition.AssemblyName =>
-        this._assemblyName;
+        m_AssemblyName;
 
     String IAddInDefinition.TypeName =>
-        this._typeName;
+        m_TypeName;
 }
 
 // IEquatable<AddInDefinition>
@@ -82,9 +83,14 @@ partial struct __AddInDefinition : IEquatable<__AddInDefinition>
         this.Version.GetHashCode();
 
 #pragma warning disable
-    public static Boolean operator ==(__AddInDefinition left, __AddInDefinition right) =>
-        left.Equals(right);
-    public static Boolean operator !=(__AddInDefinition left, __AddInDefinition right) =>
-        !left.Equals(right);
+    public static Boolean operator ==(__AddInDefinition left, __AddInDefinition right)
+    {
+        return left.Equals(right);
+    }
+
+    public static Boolean operator !=(__AddInDefinition left, __AddInDefinition right)
+    {
+        return !left.Equals(right);
+    }
 #pragma warning restore
 }
