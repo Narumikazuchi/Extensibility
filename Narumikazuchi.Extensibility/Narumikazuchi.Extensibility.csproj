@@ -1,57 +1,73 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <LangVersion>preview</LangVersion>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <EnablePreviewFeatures>True</EnablePreviewFeatures>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-    <Authors>Narumikazuchi</Authors>
-    <Copyright>©2021 Narumikazuchi</Copyright>
-    <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <RepositoryUrl>https://github.com/Narumikazuchi/Extensibility</RepositoryUrl>
-    <Description>Provides the ability to extend windows applications with AddIns. For more information visit the [wiki](https://github.com/Narumikazuchi/Extensibility/wiki).</Description>
-    <PackageReleaseNotes></PackageReleaseNotes>
-    <Version>2.0.0-prerelease</Version>
-    <PackageIcon>logo.png</PackageIcon>
-    <PackageProjectUrl>https://github.com/Narumikazuchi/Extensibility/wiki</PackageProjectUrl>
-    <PackageTags>Extensibility; Addin; Plugin; Addon; Windows; Process Isolation</PackageTags>
-	<PlatformTarget>x64</PlatformTarget>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>net6.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<LangVersion>preview</LangVersion>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<PlatformTarget>x64</PlatformTarget>
+	</PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-	<DocumentationFile>Narumikazuchi.Extensibility.xml</DocumentationFile>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TreatWarningsAsErrors>True</TreatWarningsAsErrors>
+		<WarningsNotAsErrors>1591; 0436</WarningsNotAsErrors>
+	</PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-	<DocumentationFile>Narumikazuchi.Extensibility.xml</DocumentationFile>
-  </PropertyGroup>
+	<PropertyGroup>
+		<DocumentationFile>Narumikazuchi.Extensibility.xml</DocumentationFile>
+		<Authors>Narumikazuchi</Authors>
+		<Copyright>©2022 Narumikazuchi</Copyright>
+		<Version>1.9.9.9-prerelease</Version>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <None Include="..\logo.png">
-      <Pack>True</Pack>
-      <PackagePath></PackagePath>
-    </None>
-    <None Include="..\LICENSE">
-      <Pack>True</Pack>
-      <PackagePath></PackagePath>
-    </None>
-    <None Include="..\README.md">
-      <Pack>True</Pack>
-      <PackagePath></PackagePath>
-    </None>
-    <None Include="..\README nuget.md">
-      <Pack>True</Pack>
-      <PackagePath></PackagePath>
-    </None>
-  </ItemGroup>
+	<PropertyGroup>
+		<RepositoryUrl>https://github.com/Narumikazuchi/Extensibility</RepositoryUrl>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<PackageReleaseNotes></PackageReleaseNotes>
+		<PackageLicenseFile>LICENSE</PackageLicenseFile>
+		<NoPackageAnalysis>true</NoPackageAnalysis>
+		<PackageProjectUrl>https://github.com/Narumikazuchi/Extensibility/wiki</PackageProjectUrl>
+		<PackageIcon>logo.png</PackageIcon>
+		<PackageTags>Extensibility; Addin; Plugin; Addon; Windows; Process Isolation</PackageTags>
+		<PackageReadmeFile>README nuget.md</PackageReadmeFile>
+		<Description>Provides the ability to extend windows applications with AddIns. For more information visit the [wiki](https://github.com/Narumikazuchi/Extensibility/wiki).</Description>
+		<Title>$(AssemblyName)</Title>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Narumikazuchi" Version="2.2.1" />
-    <PackageReference Include="Narumikazuchi.Serialization.Bytes" Version="2.0.1" />
-    <PackageReference Include="Narumikazuchi.Singletons" Version="1.0.0-prerelease" />
-  </ItemGroup>
+	<PropertyGroup>
+		<EnablePreviewFeatures>True</EnablePreviewFeatures>
+		<GenerateRequiresPreviewFeaturesAttribute>True</GenerateRequiresPreviewFeaturesAttribute>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<InternalsVisibleTo Include="UnitTest" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="..\logo.png">
+			<Pack>True</Pack>
+			<PackagePath></PackagePath>
+		</None>
+		<None Include="..\LICENSE">
+			<Pack>True</Pack>
+			<PackagePath></PackagePath>
+		</None>
+		<None Include="..\README.md">
+			<Pack>True</Pack>
+			<PackagePath></PackagePath>
+		</None>
+		<None Include="..\README nuget.md">
+			<Pack>True</Pack>
+			<PackagePath></PackagePath>
+		</None>
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Narumikazuchi.Serialization.Bytes" Version="2.99.9999" />
+	</ItemGroup>
 
 </Project>

@@ -1,7 +1,7 @@
 ﻿namespace Narumikazuchi.Extensibility;
 
 /// <summary>
-/// Contains the <see cref="IAddInDefinition"/> that is tied to the current event.
+/// Contains the <see cref="AddInDefinition"/> that is tied to the current event.
 /// </summary>
 public sealed class AddInDefinitionEventArgs : EventArgs
 {
@@ -9,17 +9,15 @@ public sealed class AddInDefinitionEventArgs : EventArgs
     /// Creates a new instance of the <see cref="AddInDefinitionEventArgs"/> class.
     /// </summary>
     /// <exception cref="ArgumentNullException"/>
-    public AddInDefinitionEventArgs([DisallowNull] IAddInDefinition addIn)
+    public AddInDefinitionEventArgs(AddInDefinition addIn)
     {
-        ArgumentNullException.ThrowIfNull(addIn);
-
-        this.AddIn = addIn;
+        this.Definition = addIn;
     }
 
     /// <summary>
-    /// Gets the <see cref="IAddInDefinition"/> that is tied to the event.
+    /// Gets the <see cref="AddInDefinition"/> that is tied to the event.
     /// </summary>
     [NotNull]
     [Pure]
-    public IAddInDefinition AddIn { get; }
+    public AddInDefinition Definition { get; }
 }

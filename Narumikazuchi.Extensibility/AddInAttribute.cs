@@ -4,7 +4,7 @@
 /// Marks a class as an AddIn.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
-public sealed partial class AddInAttribute :  Attribute
+public sealed partial class AddInAttribute : Attribute
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="AddInAttribute"/> class.
@@ -18,21 +18,22 @@ public sealed partial class AddInAttribute :  Attribute
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(guid);
         ArgumentNullException.ThrowIfNull(version);
+
         if (!Guid.TryParse(input: guid, 
-                            result: out Guid id))
+                           result: out Guid id))
         {
             throw new ArgumentException(message: GUID_PARSE_ERROR, 
                                         paramName: nameof(guid));
         }
         if (!AlphanumericVersion.TryParse(source: version, 
-                                            result: out AlphanumericVersion ver))
+                                          result: out AlphanumericVersion ver))
         {
             throw new ArgumentException(message: VERSION_PARSE_ERROR,
                                         paramName: nameof(version));
         }
 
         this.Name = name;
-        this.UniqueIdentifier = id;
+        this.Id = id;
         this.Version = ver;
     }
 
@@ -42,11 +43,13 @@ public sealed partial class AddInAttribute :  Attribute
     [Pure]
     [NotNull]
     public String Name { get; }
+
     /// <summary>
     /// Gets the unique GUID of the AddIn.
     /// </summary>
     [Pure]
-    public Guid UniqueIdentifier { get; }
+    public Guid Id { get; }
+
     /// <summary>
     /// Gets the release version of the AddIn.
     /// </summary>
@@ -54,12 +57,11 @@ public sealed partial class AddInAttribute :  Attribute
     public AlphanumericVersion Version { get; }
 }
 
+// Non-Public
 partial class AddInAttribute
 {
-#pragma warning disable
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private const String GUID_PARSE_ERROR = "Could not parse the specified string to a Guid.";
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private const String VERSION_PARSE_ERROR = "Could not parse the specified string to a Version.";
-#pragma warning restore
 }
