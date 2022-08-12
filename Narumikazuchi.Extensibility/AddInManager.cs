@@ -1,4 +1,7 @@
-﻿namespace Narumikazuchi.Extensibility;
+﻿using System;
+using System.Reflection.Metadata;
+
+namespace Narumikazuchi.Extensibility;
 
 public sealed partial class AddInManager
 {
@@ -98,7 +101,15 @@ partial class AddInManager
                          TrustLevel trustLevel,
                          Option<Func<AddInDefinition, Boolean>> requestTrustPrompt)
     {
-        m_ParameterProvider = parameterProvider;
+        if (parameterProvider.HasValue)
+        {
+            m_ParameterProvider = parameterProvider!;
+        }
+        else
+        {
+            m_ParameterProvider = new GenericParameterProvider();
+        }
+
         m_TrustLevel = trustLevel;
         m_RequestTrustPrompt = requestTrustPrompt;
 
@@ -121,74 +132,31 @@ partial class AddInManager
 
         List<Exception> exceptions = new();
         constructors.TryGetValue(out ConstructorInfo[]? constructorsArray);
-        m_ParameterProvider.TryGetValue(out AddInParameterProvider? parameterProvider);
         foreach (ConstructorInfo constructor in constructorsArray!)
         {
-            Boolean skip = false;
-            ParameterInfo[] constructorParameters = constructor.GetParameters();
-            List<Object?> currentParameters = new();
-            if (parameterProvider is not null &&
-                constructorParameters.Length > 0)
-            {
-                foreach (ParameterInfo parameter in constructorParameters)
-                {
-                    Type parameterType = parameter.ParameterType;
-                    Boolean isOption = false;
-                    if (parameter.ParameterType.IsGenericType &&
-                        parameter.ParameterType.GetGenericTypeDefinition() == typeof(Option<>))
-                    {
-                        parameterType = parameter.ParameterType.GetGenericArguments()[0];
-                        isOption = true;
-                    }
-
-                    Option<Object> param = parameterProvider.GetParameter(parameterType);
-                    if (param.HasValue)
-                    {
-                        if (isOption)
-                        {
-                            param.TryGetValue(out Object? paramValue);
-                            paramValue = parameter.ParameterType.GetMethod(name: "op_Implicit",
-                                                                           types: new Type[] { parameterType })!
-                                                                .Invoke(obj: null,
-                                                                        parameters: new Object?[] { paramValue });
-                            currentParameters.Add(paramValue!);
-                        }
-                        else
-                        {
-                            param.TryGetValue(out Object? paramValue);
-                            currentParameters.Add(paramValue!);
-                        }
-                    }
-                    else if (isOption ||
-                             AttributeResolver.HasAttribute<OptionalAttribute>(parameter))
-                    {
-                        currentParameters.Add(null);
-                    }
-                    else
-                    {
-                        skip = true;
-                        break;
-                    }
-                }
-            }
-
-            if (skip)
+            if (!this.TryAssembleConstructor(constructor: constructor,
+                                             currentParameters: out List<Object?> currentParameters))
             {
                 continue;
             }
 
-            try
+            if (TryInstantiateAddIn(constructor: constructor,
+                                    currentParameters: currentParameters,
+                                    exceptions: exceptions,
+                                    addIn: out Option<AddIn> addIn))
             {
-                AddIn addIn = (AddIn)constructor.Invoke(currentParameters.ToArray());
+                if (definition.InjectAsDependency)
+                {
+                    addIn.TryGetValue(out AddIn? addInInstance);
+                    m_ParameterProvider.AddParameter(parameterType: type!,
+                                                     parameter: addInInstance!);
+                }
+
                 m_Instances[definition] = addIn;
-                addIn.Start();
+                addIn.Interact(x => x.Start());
                 this.AddInActivated?.Invoke(sender: addIn,
                                             eventArgs: EventArgs.Empty);
                 return addIn;
-            }
-            catch (Exception exception)
-            {
-                exceptions.Add(exception);
             }
         }
 
@@ -211,22 +179,6 @@ partial class AddInManager
 
         this.AddInDiscovered?.Invoke(sender: this,
                                      eventArgs: new(definition));
-    }
-
-    private static Option<Assembly> FindAssembly(String assemblyName)
-    {
-        foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies()
-                                                             .Where(a => !a.FullName!.StartsWith("System", StringComparison.InvariantCultureIgnoreCase))
-                                                             .Where(a => !a.FullName!.StartsWith("Microsoft", StringComparison.InvariantCultureIgnoreCase)))
-        {
-            if (!assembly.IsDynamic &&
-                assembly.GetName().FullName == assemblyName)
-            {
-                return assembly;
-            }
-        }
-
-        return null;
     }
 
     private void OnShutdown(Object? sender,
@@ -254,14 +206,120 @@ partial class AddInManager
         }
     }
 
+    private static Option<Assembly> FindAssembly(String assemblyName)
+    {
+        foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies()
+                                                             .Where(a => !a.FullName!.StartsWith("System", StringComparison.InvariantCultureIgnoreCase))
+                                                             .Where(a => !a.FullName!.StartsWith("Microsoft", StringComparison.InvariantCultureIgnoreCase)))
+        {
+            if (!assembly.IsDynamic &&
+                assembly.GetName().FullName == assemblyName)
+            {
+                return assembly;
+            }
+        }
+
+        return null;
+    }
+
+    private Boolean TryAssembleConstructor(ConstructorInfo constructor,
+                                           out List<Object?> currentParameters)
+    {
+        ParameterInfo[] constructorParameters = constructor.GetParameters();
+        currentParameters = new();
+        if (constructorParameters.Length == 0)
+        {
+            return true;
+        }
+        else
+        {
+            foreach (ParameterInfo parameter in constructorParameters)
+            {
+                if (!this.TryResolveParameter(parameter: parameter,
+                                              currentParameters: currentParameters))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    }
+
+    private Boolean TryResolveParameter(ParameterInfo parameter,
+                                        List<Object?> currentParameters)
+    {
+        Type parameterType = parameter.ParameterType;
+        Boolean isOption = false;
+        if (parameter.ParameterType.IsGenericType &&
+            parameter.ParameterType.GetGenericTypeDefinition() == typeof(Option<>))
+        {
+            parameterType = parameter.ParameterType.GetGenericArguments()[0];
+            isOption = true;
+        }
+
+        Option<Object> param = m_ParameterProvider.GetParameter(parameterType);
+        if (param.HasValue)
+        {
+            if (isOption)
+            {
+                param.TryGetValue(out Object? paramValue);
+                paramValue = parameter.ParameterType.GetMethod(name: "op_Implicit",
+                                                               types: new Type[] { parameterType })!
+                                                    .Invoke(obj: null,
+                                                            parameters: new Object?[] { paramValue });
+                currentParameters.Add(paramValue!);
+                return true;
+            }
+            else
+            {
+                param.TryGetValue(out Object? paramValue);
+                currentParameters.Add(paramValue!);
+                return true;
+            }
+        }
+        else if (isOption ||
+                 AttributeResolver.HasAttribute<OptionalAttribute>(parameter))
+        {
+            currentParameters.Add(null);
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    private static Boolean TryInstantiateAddIn(ConstructorInfo constructor,
+                                               List<Object?> currentParameters,
+                                               List<Exception> exceptions,
+                                               out Option<AddIn> addIn)
+    {
+        try
+        {
+            addIn = (AddIn)constructor.Invoke(currentParameters.ToArray());
+            return true;
+        }
+        catch (Exception exception)
+        {
+            addIn = null;
+            exceptions.Add(exception);
+            return false;
+        }
+    }
+
     private readonly Dictionary<AddInDefinition, Option<AddIn>> m_Instances = new();
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private readonly HashSet<Guid> m_UserBlockedAddIns = new();
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private readonly HashSet<Guid> m_UserTrustedAddIns = new();
     private readonly HashSet<Guid> m_SystemTrustedAddIns = new();
-    private readonly Option<AddInParameterProvider> m_ParameterProvider;
-    private readonly Option<Func<AddInDefinition, Boolean>> m_RequestTrustPrompt;
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    private readonly AddInParameterProvider m_ParameterProvider;
     private readonly TrustLevel m_TrustLevel;
     private Option<ByteSerializerDeserializer<Guid[]>> m_GuidSerializer = null;
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    private Option<Func<AddInDefinition, Boolean>> m_RequestTrustPrompt;
 }
 
 // Activate AddIns
@@ -435,6 +493,9 @@ partial class AddInManager
     public event EventHandler<AddIn>? AddInDeactivating;
     public event EventHandler<AddInManager, AddInActivationFailedEventArgs>? AddInDeactivationFailed;
     public event EventHandler<AddInManager, AddInDefinitionEventArgs>? AddInDeactivated;
+
+    public AddInParameterProvider ParameterProvider =>
+        m_ParameterProvider;
 }
 
 // AddIn List
@@ -582,6 +643,12 @@ partial class AddInManager
     public event EventHandler<AddInManager, AddInDefinitionEventArgs>? AddInDiscovering;
     public event EventHandler<AddInManager, AddInDefinitionEventArgs>? AddInDiscovered;
     public event EventHandler<AddInManager, AddInDiscoveryFailedEventArgs>? AddInDiscoveryFailed;
+
+    public Option<Func<AddInDefinition, Boolean>> UserPromptOnNewAddIn
+    {
+        get => m_RequestTrustPrompt;
+        set => m_RequestTrustPrompt = value;
+    }
 }
 
 // Trust Lists

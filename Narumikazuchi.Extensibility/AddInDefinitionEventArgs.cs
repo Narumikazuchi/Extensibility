@@ -3,6 +3,7 @@
 /// <summary>
 /// Contains the <see cref="AddInDefinition"/> that is tied to the current event.
 /// </summary>
+[DebuggerDisplay("{Definition}")]
 public sealed class AddInDefinitionEventArgs : EventArgs
 {
     /// <summary>

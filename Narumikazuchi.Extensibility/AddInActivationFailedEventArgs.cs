@@ -1,5 +1,6 @@
 ﻿namespace Narumikazuchi.Extensibility;
 
+[DebuggerDisplay("{Reason}")]
 public sealed class AddInActivationFailedEventArgs : EventArgs
 {
     public AddInActivationFailedEventArgs(ActivationFailReason reason)

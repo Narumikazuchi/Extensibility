@@ -55,6 +55,12 @@ public sealed partial class AddInAttribute : Attribute
     /// </summary>
     [Pure]
     public AlphanumericVersion Version { get; }
+
+    /// <summary>
+    /// Gets the whether the <see cref="AddInManager"/> will inject this AddIn as dependency for other AddIns to use.
+    /// </summary>
+    [Pure]
+    public Boolean InjectAsDependency { get; set; }
 }
 
 // Non-Public

@@ -1,6 +1,7 @@
 ﻿namespace Narumikazuchi.Extensibility;
 
 #pragma warning disable CS0282
+[DebuggerDisplay("{Name} v{Version} ({Id})")]
 public readonly partial struct AddInDefinition
 {
     public static AddInDefinition FromAttribute<T>(AddInAttribute attribute) =>
@@ -12,6 +13,7 @@ public readonly partial struct AddInDefinition
         AddInDefinition result = new(id: attribute.Id,
                                      name: attribute.Name,
                                      version: attribute.Version,
+                                     inject: attribute.InjectAsDependency,
                                      assembly: type.Assembly.GetName().FullName,
                                      type: type.FullName!);
 
@@ -34,6 +36,7 @@ partial struct AddInDefinition
     internal AddInDefinition(Guid id,
                              String name,
                              AlphanumericVersion version,
+                             Boolean inject,
                              String assembly,
                              String type)
     {
@@ -44,17 +47,16 @@ partial struct AddInDefinition
         this.Id = id;
         this.Name = name;
         this.Version = version;
-        m_AssemblyName = assembly;
-        m_TypeName = type;
+        this.InjectAsDependency = inject;
+        this.AssemblyName = assembly;
+        this.TypeName = type;
     }
 
-    internal String AssemblyName =>
-        m_AssemblyName;
+    internal String AssemblyName { get; }
 
-    internal String TypeName =>
-        m_TypeName;
+    internal String TypeName { get; }
+
+    internal Boolean InjectAsDependency { get; }
 
     internal static readonly Dictionary<Type, AddInDefinition> s_KnownDefinitions = new();
-    private readonly String m_AssemblyName;
-    private readonly String m_TypeName;
 }

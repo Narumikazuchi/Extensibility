@@ -31,6 +31,11 @@
             Gets the release version of the AddIn.
             </summary>
         </member>
+        <member name="P:Narumikazuchi.Extensibility.AddInAttribute.InjectAsDependency">
+            <summary>
+            Gets the whether the <see cref="T:Narumikazuchi.Extensibility.AddInManager"/> will inject this AddIn as dependency for other AddIns to use.
+            </summary>
+        </member>
         <member name="M:Narumikazuchi.Extensibility.AddInDefinitionCollection.GetEnumerator">
             <inheritdoc/>
         </member>

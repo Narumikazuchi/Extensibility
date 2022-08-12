@@ -1,5 +1,6 @@
 ﻿namespace Narumikazuchi.Extensibility;
 
+[DebuggerDisplay("Count: {m_Items.Count}")]
 public sealed partial class AddInDefinitionCollection
 { }
 
@@ -18,6 +19,7 @@ partial class AddInDefinitionCollection
         }
     }
 
+    [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
     private readonly HashSet<AddInDefinition> m_Items = new(comparer: AddInEqualityComparer.Instance);
 }
 

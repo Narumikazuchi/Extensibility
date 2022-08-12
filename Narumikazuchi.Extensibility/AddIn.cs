@@ -1,5 +1,6 @@
 ﻿namespace Narumikazuchi.Extensibility;
 
+[DebuggerDisplay("{m_AddInDefinition}")]
 public abstract partial class AddIn
 {
     public virtual void Start() =>
@@ -30,6 +31,8 @@ partial class AddIn
                                                           attribute: attribute);
     }
 
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private readonly AddInDefinition m_AddInDefinition;
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private Boolean m_IsRunning;
 }
