@@ -3,39 +3,49 @@
 public sealed partial class AddInManager
 {
     public static AddInManager Create(TrustLevel trustLevel) =>
-        Create(serviceProvider: (IServiceProvider?)null,
+        Create(parameterProvider: null,
                trustLevel: trustLevel,
                systemTrustedAddIns: Array.Empty<Guid>(),
+               userBlockedAddIns: Array.Empty<Guid>(),
                userTrustedAddIns: Array.Empty<Guid>(),
                requestTrustPrompt: null);
-    public static AddInManager Create<TSystemTrusted, TUserTrusted>(TrustLevel trustLevel,
-                                                                    [DisallowNull] TSystemTrusted systemTrustedAddIns,
-                                                                    [DisallowNull] TUserTrusted userTrustedAddIns)
+    public static AddInManager Create<TSystemTrusted, TUserBlocked, TUserTrusted>(TrustLevel trustLevel,
+                                                                                  [DisallowNull] TSystemTrusted systemTrustedAddIns,
+                                                                                  [DisallowNull] TUserBlocked userBlockedAddIns,
+                                                                                  [DisallowNull] TUserTrusted userTrustedAddIns)
         where TSystemTrusted : IEnumerable<Guid>
+        where TUserBlocked : IEnumerable<Guid>
         where TUserTrusted : IEnumerable<Guid> =>
-            Create(serviceProvider: (IServiceProvider?)null,
+            Create(parameterProvider: null,
                    trustLevel: trustLevel,
                    systemTrustedAddIns: systemTrustedAddIns,
+                   userBlockedAddIns: userBlockedAddIns,
                    userTrustedAddIns: userTrustedAddIns,
                    requestTrustPrompt: null);
-    public static AddInManager Create<TServiceProvider, TSystemTrusted, TUserTrusted>([AllowNull] TServiceProvider? serviceProvider,
-                                                                                      TrustLevel trustLevel,
-                                                                                      [DisallowNull] TSystemTrusted systemTrustedAddIns,
-                                                                                      [DisallowNull] TUserTrusted userTrustedAddIns)
-        where TServiceProvider : IServiceProvider
+    public static AddInManager Create<TSystemTrusted, TUserBlocked, TUserTrusted>([AllowNull] Option<AddInParameterProvider> parameterProvider,
+                                                                                  TrustLevel trustLevel,
+                                                                                  [DisallowNull] TSystemTrusted systemTrustedAddIns,
+                                                                                  [DisallowNull] TUserBlocked userBlockedAddIns,
+                                                                                  [DisallowNull] TUserTrusted userTrustedAddIns)
         where TSystemTrusted : IEnumerable<Guid>
+        where TUserBlocked : IEnumerable<Guid>
         where TUserTrusted : IEnumerable<Guid>
     {
         ArgumentNullException.ThrowIfNull(systemTrustedAddIns);
         ArgumentNullException.ThrowIfNull(userTrustedAddIns);
 
-        AddInManager result = new(serviceProvider: serviceProvider,
+        AddInManager result = new(parameterProvider: parameterProvider,
                                   trustLevel: trustLevel,
                                   requestTrustPrompt: null);
 
         foreach (Guid id in systemTrustedAddIns)
         {
             result.m_SystemTrustedAddIns.Add(id);
+        }
+
+        foreach (Guid id in userBlockedAddIns)
+        {
+            result.m_UserBlockedAddIns.Add(id);
         }
 
         foreach (Guid id in userTrustedAddIns)
@@ -45,25 +55,31 @@ public sealed partial class AddInManager
 
         return result;
     }
-    public static AddInManager Create<TServiceProvider, TSystemTrusted, TUserTrusted>([AllowNull] TServiceProvider? serviceProvider,
-                                                                                      TrustLevel trustLevel,
-                                                                                      [DisallowNull] TSystemTrusted systemTrustedAddIns,
-                                                                                      [DisallowNull] TUserTrusted userTrustedAddIns,
-                                                                                      [AllowNull] Func<AddInDefinition, Boolean>? requestTrustPrompt)
-        where TServiceProvider : IServiceProvider
+    public static AddInManager Create<TSystemTrusted, TUserBlocked, TUserTrusted>([AllowNull] Option<AddInParameterProvider> parameterProvider,
+                                                                                  TrustLevel trustLevel,
+                                                                                  [DisallowNull] TSystemTrusted systemTrustedAddIns,
+                                                                                  [DisallowNull] TUserBlocked userBlockedAddIns,
+                                                                                  [DisallowNull] TUserTrusted userTrustedAddIns,
+                                                                                  [AllowNull] Func<AddInDefinition, Boolean>? requestTrustPrompt)
         where TSystemTrusted : IEnumerable<Guid>
+        where TUserBlocked : IEnumerable<Guid>
         where TUserTrusted : IEnumerable<Guid>
     {
         ArgumentNullException.ThrowIfNull(systemTrustedAddIns);
         ArgumentNullException.ThrowIfNull(userTrustedAddIns);
 
-        AddInManager result = new(serviceProvider: serviceProvider,
+        AddInManager result = new(parameterProvider: parameterProvider,
                                   trustLevel: trustLevel,
                                   requestTrustPrompt: requestTrustPrompt);
 
         foreach (Guid id in systemTrustedAddIns)
         {
             result.m_SystemTrustedAddIns.Add(id);
+        }
+
+        foreach (Guid id in userBlockedAddIns)
+        {
+            result.m_UserBlockedAddIns.Add(id);
         }
 
         foreach (Guid id in userTrustedAddIns)
@@ -78,11 +94,11 @@ public sealed partial class AddInManager
 // Non-Public
 partial class AddInManager
 {
-    private AddInManager(Option<IServiceProvider> serviceProvider,
+    private AddInManager(Option<AddInParameterProvider> parameterProvider,
                          TrustLevel trustLevel,
                          Option<Func<AddInDefinition, Boolean>> requestTrustPrompt)
     {
-        m_ServiceProvider = serviceProvider;
+        m_ParameterProvider = parameterProvider;
         m_TrustLevel = trustLevel;
         m_RequestTrustPrompt = requestTrustPrompt;
 
@@ -105,26 +121,53 @@ partial class AddInManager
 
         List<Exception> exceptions = new();
         constructors.TryGetValue(out ConstructorInfo[]? constructorsArray);
-        m_ServiceProvider.TryGetValue(out IServiceProvider? serviceProvider);
+        m_ParameterProvider.TryGetValue(out AddInParameterProvider? parameterProvider);
         foreach (ConstructorInfo constructor in constructorsArray!)
         {
             Boolean skip = false;
             ParameterInfo[] constructorParameters = constructor.GetParameters();
             List<Object?> currentParameters = new();
-            if (serviceProvider is not null &&
+            if (parameterProvider is not null &&
                 constructorParameters.Length > 0)
             {
                 foreach (ParameterInfo parameter in constructorParameters)
                 {
-                    Object? service = serviceProvider.GetService(parameter.ParameterType);
-                    if (service is null)
+                    Type parameterType = parameter.ParameterType;
+                    Boolean isOption = false;
+                    if (parameter.ParameterType.IsGenericType &&
+                        parameter.ParameterType.GetGenericTypeDefinition() == typeof(Option<>))
                     {
-                        skip = true;
-                        break;
+                        parameterType = parameter.ParameterType.GetGenericArguments()[0];
+                        isOption = true;
+                    }
+
+                    Option<Object> param = parameterProvider.GetParameter(parameterType);
+                    if (param.HasValue)
+                    {
+                        if (isOption)
+                        {
+                            param.TryGetValue(out Object? paramValue);
+                            paramValue = parameter.ParameterType.GetMethod(name: "op_Implicit",
+                                                                           types: new Type[] { parameterType })!
+                                                                .Invoke(obj: null,
+                                                                        parameters: new Object?[] { paramValue });
+                            currentParameters.Add(paramValue!);
+                        }
+                        else
+                        {
+                            param.TryGetValue(out Object? paramValue);
+                            currentParameters.Add(paramValue!);
+                        }
+                    }
+                    else if (isOption ||
+                             AttributeResolver.HasAttribute<OptionalAttribute>(parameter))
+                    {
+                        currentParameters.Add(null);
                     }
                     else
                     {
-                        currentParameters.Add(service);
+                        skip = true;
+                        break;
                     }
                 }
             }
@@ -212,9 +255,10 @@ partial class AddInManager
     }
 
     private readonly Dictionary<AddInDefinition, Option<AddIn>> m_Instances = new();
+    private readonly HashSet<Guid> m_UserBlockedAddIns = new();
     private readonly HashSet<Guid> m_UserTrustedAddIns = new();
     private readonly HashSet<Guid> m_SystemTrustedAddIns = new();
-    private readonly Option<IServiceProvider> m_ServiceProvider;
+    private readonly Option<AddInParameterProvider> m_ParameterProvider;
     private readonly Option<Func<AddInDefinition, Boolean>> m_RequestTrustPrompt;
     private readonly TrustLevel m_TrustLevel;
     private Option<ByteSerializerDeserializer<Guid[]>> m_GuidSerializer = null;
@@ -406,7 +450,7 @@ partial class AddInManager
 
     public AddInDefinitionsEnumerator EnumerateAllAddIns() =>
         new(source: m_Instances.GetEnumerator(),
-            match: (definition, addIn) => true);
+            match: null);
 
     public Option<AddInDefinition?> this[Guid id]
     {
@@ -494,8 +538,12 @@ partial class AddInManager
 
             if (m_TrustLevel.HasFlag(TrustLevel.OnlyUserConfirmed))
             {
-
-                if (m_RequestTrustPrompt.Map(x => x.Invoke(definition)))
+                if (m_UserBlockedAddIns.Contains(item: definition.Id))
+                {
+                    this.AddInDiscoveryFailed?.Invoke(sender: this,
+                                                      eventArgs: new(DiscoveryFailedReason.UserTrustDenied));
+                }
+                else if (m_RequestTrustPrompt.Map(x => x.Invoke(definition)))
                 {
                     m_UserTrustedAddIns.Add(item: definition.Id);
 
@@ -512,6 +560,7 @@ partial class AddInManager
                 }
                 else
                 {
+                    m_UserBlockedAddIns.Add(definition.Id);
                     this.AddInDiscoveryFailed?.Invoke(sender: this,
                                                       eventArgs: new(DiscoveryFailedReason.UserTrustDenied));
                 }
@@ -538,8 +587,31 @@ partial class AddInManager
 // Trust Lists
 partial class AddInManager
 {
+    public void ClearUserBlockedList() =>
+        m_UserBlockedAddIns.Clear();
+
     public void ClearUserTrustedList() =>
         m_UserTrustedAddIns.Clear();
+
+    public void ReadUserBlockedListFrom([DisallowNull] FileInfo file)
+    {
+        ArgumentNullException.ThrowIfNull(file);
+
+        this.ReadUserBlockedListFrom(filePath: file.FullName);
+    }
+    public void ReadUserBlockedListFrom([DisallowNull] String filePath)
+    {
+        ArgumentNullException.ThrowIfNull(filePath);
+
+        using FileStream stream = File.OpenRead(filePath);
+        this.ReadUserBlockedListFrom(stream: stream.AsReadableStream());
+    }
+    [Obsolete("Please use the more modern IReadableStream interface where possible.", false)]
+    public void ReadUserBlockedListFrom([DisallowNull] Stream stream) =>
+        this.ReadUserBlockedListFrom(stream.AsReadableStream());
+    public void ReadUserBlockedListFrom<TStream>([DisallowNull] TStream stream)
+        where TStream : IReadableStream => 
+            m_UserBlockedAddIns.AddRange(this.ReadGuidListFrom(stream));
 
     public void ReadUserTrustedListFrom([DisallowNull] FileInfo file)
     {
@@ -556,34 +628,42 @@ partial class AddInManager
     }
     [Obsolete("Please use the more modern IReadableStream interface where possible.", false)]
     public void ReadUserTrustedListFrom([DisallowNull] Stream stream) =>
-        ReadUserTrustedListFrom(stream.AsReadableStream());
+        this.ReadUserTrustedListFrom(stream.AsReadableStream());
     public void ReadUserTrustedListFrom<TStream>([DisallowNull] TStream stream)
-        where TStream : IReadableStream
-    {
-        ArgumentNullException.ThrowIfNull(stream);
+        where TStream : IReadableStream =>
+            m_UserTrustedAddIns.AddRange(this.ReadGuidListFrom(stream));
 
-        if (!m_GuidSerializer.HasValue)
-        {
-            m_GuidSerializer = ByteSerializerDeserializer<Guid[]>.Create();
-        }
-
-        try
-        {
-            Option<Guid[]> trusted = m_GuidSerializer.Map(x => x.Deserialize(stream: stream,
-                                                                             actionAfter: SerializationFinishAction.None)!);
-            if (!trusted.HasValue)
-            {
-                trusted = Array.Empty<Guid>();
-            }
-
-            trusted.TryGetValue(out Guid[]? guids);
-            m_UserTrustedAddIns.AddRange(guids!);
-        }
-        catch { }
-    }
+    public void RemoveFromUserBlockedList(in Guid guid) =>
+        m_UserBlockedAddIns.Remove(guid);
 
     public void RemoveFromUserTrustedList(in Guid guid) =>
         m_UserTrustedAddIns.Remove(guid);
+
+    public void WriteUserBlockedListTo([DisallowNull] FileInfo file)
+    {
+        ArgumentNullException.ThrowIfNull(file);
+
+        this.WriteUserBlockedListTo(filePath: file.FullName);
+    }
+    public void WriteUserBlockedListTo([DisallowNull] String filePath)
+    {
+        ArgumentNullException.ThrowIfNull(filePath);
+
+        if (File.Exists(filePath))
+        {
+            File.Delete(filePath);
+        }
+
+        using FileStream stream = File.Create(filePath);
+        this.WriteUserBlockedListTo(stream: stream.AsWriteableStream());
+    }
+    [Obsolete("Please use the more modern IWriteableStream interface where possible.", false)]
+    public void WriteUserBlockedListTo([DisallowNull] Stream stream) =>
+        this.WriteUserBlockedListTo(stream.AsWriteableStream());
+    public void WriteUserBlockedListTo<TStream>([DisallowNull] TStream stream)
+        where TStream : IWriteableStream =>
+            this.WriteGuidListTo(stream: stream,
+                                 guids: m_UserBlockedAddIns);
 
     public void WriteUserTrustedListTo([DisallowNull] FileInfo file)
     {
@@ -607,6 +687,40 @@ partial class AddInManager
     public void WriteUserTrustedListTo([DisallowNull] Stream stream) =>
         this.WriteUserTrustedListTo(stream.AsWriteableStream());
     public void WriteUserTrustedListTo<TStream>([DisallowNull] TStream stream)
+        where TStream : IWriteableStream =>
+            this.WriteGuidListTo(stream: stream,
+                                 guids: m_UserTrustedAddIns);
+
+    private Guid[] ReadGuidListFrom<TStream>(TStream stream)
+        where TStream : IReadableStream
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+
+        if (!m_GuidSerializer.HasValue)
+        {
+            m_GuidSerializer = ByteSerializerDeserializer<Guid[]>.Create();
+        }
+
+        try
+        {
+            Option<Guid[]> trusted = m_GuidSerializer.Map(x => x.Deserialize(stream: stream,
+                                                                             actionAfter: SerializationFinishAction.None)!);
+            if (!trusted.HasValue)
+            {
+                trusted = Array.Empty<Guid>();
+            }
+
+            trusted.TryGetValue(out Guid[]? guids);
+            return guids!;
+        }
+        catch
+        {
+            return Array.Empty<Guid>();
+        }
+    }
+
+    private void WriteGuidListTo<TStream>(TStream stream,
+                                          HashSet<Guid> guids)
         where TStream : IWriteableStream
     {
         ArgumentNullException.ThrowIfNull(stream);
@@ -617,9 +731,12 @@ partial class AddInManager
         }
 
         m_GuidSerializer.Interact(x => x.Serialize(stream: stream,
-                                                   graph: m_UserTrustedAddIns.ToArray(),
+                                                   graph: guids.ToArray(),
                                                    actionAfter: SerializationFinishAction.None));
     }
+
+    public ReadOnlyCollection<Guid> UserBlockedAddIns =>
+        ReadOnlyCollection<Guid>.CreateFrom(m_UserBlockedAddIns);
 
     public ReadOnlyCollection<Guid> UserTrustedAddIns =>
         ReadOnlyCollection<Guid>.CreateFrom(m_UserTrustedAddIns);

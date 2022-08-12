@@ -8,7 +8,7 @@ public partial struct AddInDefinitionsEnumerator
 partial struct AddInDefinitionsEnumerator
 {
     internal AddInDefinitionsEnumerator(Dictionary<AddInDefinition, Option<AddIn>>.Enumerator source,
-                                        Func<AddInDefinition, Option<AddIn>, Boolean> match)
+                                        Func<AddInDefinition, Option<AddIn>, Boolean>? match)
     {
         m_Match = match;
         m_Source = source;
@@ -16,7 +16,7 @@ partial struct AddInDefinitionsEnumerator
         m_Current = null;
     }
 
-    private readonly Func<AddInDefinition, Option<AddIn>, Boolean> m_Match;
+    private readonly Func<AddInDefinition, Option<AddIn>, Boolean>? m_Match;
     private Dictionary<AddInDefinition, Option<AddIn>>.Enumerator m_Source;
     private Option<Boolean?> m_State;
     private Option<AddInDefinition?> m_Current;
@@ -59,9 +59,12 @@ partial struct AddInDefinitionsEnumerator : IStrongEnumerator<AddInDefinition>
 
         while (m_Source.MoveNext())
         {
-            if (m_Match.Invoke(m_Source.Current.Key, m_Source.Current.Value))
+            KeyValuePair<AddInDefinition, Option<AddIn>> current = m_Source.Current;
+            if (m_Match is null ||
+                (m_Match is not null &&
+                m_Match.Invoke(current.Key, current.Value)))
             {
-                m_Current = m_Source.Current.Key;
+                m_Current = current.Key;
                 return true;
             }
         }
