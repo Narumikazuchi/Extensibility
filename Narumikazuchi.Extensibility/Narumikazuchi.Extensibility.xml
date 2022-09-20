@@ -80,50 +80,5 @@
             Gets whether the single instance of the singleton has been created.
             </summary>
         </member>
-        <member name="T:Narumikazuchi.Singletons.SingletonAttribute">
-            <summary>
-            Marks a class as a singleton.
-            </summary>
-        </member>
-        <member name="M:Narumikazuchi.Singletons.SingletonAttribute.#ctor">
-            <summary>
-            Default Constructor.
-            </summary>
-        </member>
-        <member name="T:Narumikazuchi.Singletons.SingletonWithParametersAttribute">
-            <summary>
-            Marks a class as a singleton, which will take in parameters to instantiate.
-            </summary>
-        </member>
-        <member name="M:Narumikazuchi.Singletons.SingletonWithParametersAttribute.#ctor">
-            <summary>
-            Default Constructor.
-            </summary>
-        </member>
-        <member name="M:Narumikazuchi.Singletons.SingletonWithParametersAttribute.#ctor(System.String)">
-            <summary>
-            Default Constructor.
-            </summary>
-        </member>
-        <member name="T:Narumikazuchi.Singletons.SingletonWithInstantiationAttribute">
-            <summary>
-            Marks a class as a singleton, which has a more profound custom initiation.
-            </summary>
-        </member>
-        <member name="M:Narumikazuchi.Singletons.SingletonWithInstantiationAttribute.#ctor">
-            <summary>
-            Default Constructor.
-            </summary>
-        </member>
-        <member name="T:Narumikazuchi.Singletons.Singleton">
-            <summary>
-            The base class of all singletons.
-            </summary>
-        </member>
-        <member name="M:Narumikazuchi.Singletons.Singleton.#ctor">
-            <summary>
-            The base constructor of all singletons.
-            </summary>
-        </member>
     </members>
 </doc>
