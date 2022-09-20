@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFramework>net6.0</TargetFramework>
+		<TargetFrameworks>net6.0;net7.0</TargetFrameworks>
 		<Nullable>enable</Nullable>
 		<LangVersion>preview</LangVersion>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -17,7 +17,7 @@
 		<DocumentationFile>Narumikazuchi.Extensibility.xml</DocumentationFile>
 		<Authors>Narumikazuchi</Authors>
 		<Copyright>©2022 Narumikazuchi</Copyright>
-		<Version>2.0.3-beta</Version>
+		<Version>2.0.4-beta</Version>
 	</PropertyGroup>
 
 	<PropertyGroup>
@@ -67,7 +67,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Narumikazuchi.Serialization.Bytes" Version="3.0.1-beta" />
+		<PackageReference Include="Narumikazuchi.Serialization.Bytes" Version="3.0.3-beta" />
 	</ItemGroup>
 
 </Project>
